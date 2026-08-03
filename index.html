@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atradius Prospect Pipeline</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Atradius Prospect Pipeline</h1>
+      <p>Shared prospect database, dashboard and reporting</p>
+    </div>
+    <div class="mode-badge" id="modeBadge">Checking connection...</div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="section-header">
+        <h2>Dashboard</h2>
+        <button id="resetDashboard" class="secondary">Reset filters</button>
+      </div>
+
+      <div class="filters six">
+        <label>Status
+          <select id="dashStatus"><option value="">All statuses</option></select>
+        </label>
+        <label>Customer country
+          <select id="dashCustomerCountry"><option value="">All countries</option></select>
+        </label>
+        <label>Global country
+          <select id="dashGlobalCountry"><option value="">All global countries</option></select>
+        </label>
+        <label>Sales Manager
+          <select id="dashSalesManager"><option value="">All managers</option></select>
+        </label>
+        <label>Broker
+          <select id="dashBroker"><option value="">All brokers</option></select>
+        </label>
+        <label>Deadline
+          <select id="dashDeadline">
+            <option value="">All deadlines</option>
+            <option value="overdue">Overdue</option>
+            <option value="7">Next 7 days</option>
+            <option value="30">Next 30 days</option>
+            <option value="none">No deadline</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><span id="kpiTotal">0</span><small>Total prospects</small></div>
+        <div class="kpi green"><span id="kpiOpen">0</span><small>Open</small></div>
+        <div class="kpi grey"><span id="kpiClosed">0</span><small>Closed / Won / Lost</small></div>
+        <div class="kpi amber"><span id="kpiDue30">0</span><small>Due within 30 days</small></div>
+        <div class="kpi red"><span id="kpiOverdue">0</span><small>Overdue</small></div>
+        <div class="kpi blue"><span id="kpiPremium">0</span><small>Expected premium</small></div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="chart-card">
+          <h3>Topics by customer country</h3>
+          <div id="countryChart"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Topics by status</h3>
+          <div id="statusChart"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <h2>Add or edit prospect</h2>
+        <button id="clearForm" class="secondary">Clear form</button>
+      </div>
+
+      <form id="recordForm">
+        <input type="hidden" id="recordId" />
+        <div class="form-grid">
+          <label>Prospect name *<input id="prospectName" required /></label>
+          <label>Policy ID<input id="policyId" /></label>
+          <label>Customer ID<input id="customerId" /></label>
+          <label>Customer country<input id="customerCountry" list="customerCountryList" /></label>
+
+          <label>Global country<input id="globalCountry" list="globalCountryList" /></label>
+          <label>Sales Manager<input id="salesManager" list="salesManagerList" /></label>
+          <label>Broker<input id="broker" list="brokerList" /></label>
+          <label>Broker contact<input id="brokerContact" list="brokerContactList" /></label>
+
+          <label>Offer deadline<input id="offerDeadline" type="date" /></label>
+          <label>Precheck
+            <select id="precheck">
+              <option value="">Not set</option><option>YES</option><option>NO</option>
+            </select>
+          </label>
+          <label>Key Account Underwriter<input id="kau" list="kauList" /></label>
+          <label>Status
+            <select id="status">
+              <option>Open</option><option>On hold</option><option>Won</option><option>Lost</option><option>Closed</option>
+            </select>
+          </label>
+
+          <label>Insurable turnover<input id="insurableTurnover" placeholder="700 000 000" /></label>
+          <label>Premium rate<input id="premiumRate" placeholder="0.056%" /></label>
+          <label>Expected premium<input id="expectedPremium" placeholder="Calculated automatically" /></label>
+          <label>Premium principle
+            <select id="premiumPrinciple">
+              <option value="turnover">turnover</option>
+              <option value="outstanding balance">outstanding balance</option>
+            </select>
+          </label>
+
+          <label class="full">Prospect remarks<textarea id="prospectRemarks"></textarea></label>
+        </div>
+        <div class="actions">
+          <button type="submit" class="primary">Save prospect</button>
+          <button type="button" id="calculatePremium" class="secondary">Calculate expected premium</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <h2>Prospect database</h2>
+        <div class="report-buttons">
+          <button id="exportVisibleCsv" class="secondary">Export visible report</button>
+          <button id="exportCountryCsv" class="secondary">Export country summary</button>
+          <button id="exportJson" class="secondary">Backup JSON</button>
+          <label class="file-button">Import JSON<input id="importJson" type="file" accept=".json" hidden /></label>
+        </div>
+      </div>
+
+      <div class="filters five">
+        <label>Search<input id="search" placeholder="Prospect, policy, customer, broker, remarks..." /></label>
+        <label>Status<select id="tableStatus"><option value="">All statuses</option></select></label>
+        <label>Customer country<select id="tableCustomerCountry"><option value="">All countries</option></select></label>
+        <label>Sales Manager<select id="tableSalesManager"><option value="">All managers</option></select></label>
+        <label>Sort by
+          <select id="sortBy">
+            <option value="deadlineAsc">Nearest deadline</option>
+            <option value="updatedDesc">Last updated</option>
+            <option value="prospectName">Prospect name</option>
+            <option value="turnoverDesc">Highest turnover</option>
+            <option value="premiumDesc">Highest expected premium</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Prospect name</th><th>Policy ID</th><th>Customer ID</th><th>Customer country</th>
+              <th>Global country</th><th>Sales Manager</th><th>Broker</th><th>Broker contact</th>
+              <th>Offer deadline</th><th>Days left</th><th>Precheck</th><th>Key Account Underwriter</th>
+              <th>Prospect remarks</th><th>Status</th><th>Insurable turnover</th><th>Premium rate</th>
+              <th>Expected premium</th><th>Premium principle</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="customerCountryList"></datalist>
+  <datalist id="globalCountryList"></datalist>
+  <datalist id="salesManagerList"></datalist>
+  <datalist id="brokerList"></datalist>
+  <datalist id="brokerContactList"></datalist>
+  <datalist id="kauList"></datalist>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
