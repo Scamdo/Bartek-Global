@@ -80,7 +80,10 @@ window.del=async id=>{if(!confirm("Delete prospect?"))return;if(on){let x=await 
 
 $("form").onsubmit=async e=>{
   e.preventDefault();let r={};F.forEach(k=>r[k]=$(k).value);
-  r.insurable_turnover=n(r.insurable_turnover);r.expected_premium=n(r.expected_premium);r.premium_rate=pct(r.premium_rate);r.acceptance_rate=pct(r.acceptance_rate);
+  r.insurable_turnover=n(r.insurable_turnover);r.expected_premium=n(r.expected_premium);r.premium_rate=pct(r.premium_rate);
+  r.acceptance_rate=$("acceptance_rate").value.trim()===""?null:pct(r.acceptance_rate);
+  r.offer_deadline=r.offer_deadline||null;
+  r.closed_date=r.closed_date||null;
   let id=$("id").value;
   if(on){
     r.company_id=await ensureCompany(r);
