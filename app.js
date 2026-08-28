@@ -64,7 +64,7 @@ function render(){
   $("total").textContent=a.length;$("open").textContent=a.filter(x=>statusLower(x)==="open").length;$("won").textContent=a.filter(x=>statusLower(x)==="won").length;$("lost").textContent=a.filter(x=>statusLower(x)==="lost").length;$("overdue").textContent=a.filter(x=>statusLower(x)==="open"&&days(x.offer_deadline)<0).length;$("due7").textContent=a.filter(x=>{let d=days(x.offer_deadline);return statusLower(x)==="open"&&d!==null&&d>=0&&d<=7}).length;$("premium").textContent=moneyText(a.reduce((s,x)=>s+n(x.expected_premium),0),"EUR");$("turnover").textContent=moneyText(a.reduce((s,x)=>s+n(x.insurable_turnover),0),"EUR");
   renderBars("countries",group(a,"customer_country"),"df");renderBars("managers",group(a,"sales_manager"),"mf");renderBars("brokers",group(a,"broker"),"bf");renderBars("statuses",group(a,"status"),"sf");
   let dl=a.filter(r=>statusLower(r)==="open"&&days(r.offer_deadline)!==null&&days(r.offer_deadline)<=30).sort((x,y)=>days(x.offer_deadline)-days(y.offer_deadline)).slice(0,20);
-  $("deadlineBody").innerHTML=dl.map(r=>`<tr><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.customer_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)}</td><td>${esc(r.status)}</td><td>${moneyText(r.expected_premium,"EUR")}</td></tr>`).join("");
+  $("deadlineBody").innerHTML=dl.map(r=>`<tr><td data-col-key="Prospect name"><b>${esc(r.prospect_name)}</b></td><td data-col-key="Customer country">${esc(r.customer_country)}</td><td data-col-key="Sales Manager">${esc(r.sales_manager)}</td><td data-col-key="Offer deadline">${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)}</td><td data-col-key="Status">${esc(r.status)}</td><td data-col-key="Expected premium EUR">${moneyText(r.expected_premium,"EUR")}</td></tr>`).join("");
 }
 function prospectFiltered(){
   let q=$("search").value.toLowerCase().trim(),a=R.filter(r=>!q||Object.values(r).some(v=>String(v??"").toLowerCase().includes(q)));
@@ -79,9 +79,9 @@ function table(){
       ? `<button class="file-icon-btn" title="${fileCount} file${fileCount===1?"":"s"}" onclick="openFiles('${r.id}')">📎 <span>${fileCount}</span></button>`
       : `<span class="no-files" title="No files">—</span>`;
     const statusClass=(()=>{const s=statusLower(r);if(s==="won")return"prospect-won";if(s==="lost")return"prospect-lost";if(s==="open"||s==="ongoing")return"prospect-open";return"prospect-neutral"})();
-    return `<tr class="${statusClass}"><td class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td class="files-cell">${fileCell}</td><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.policy_id)}</td><td>${esc(r.customer_id)}</td><td>${esc(r.customer_country)}</td><td>${esc(r.global_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.broker)}</td><td>${esc(r.broker_contact)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td>${esc(r.precheck)}</td><td>${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td>${esc(r.key_account_underwriter)}</td><td>${esc(r.opportunity_type)}</td><td class="rem">${esc(r.prospect_remarks)}</td><td>${esc(r.status)}</td><td>${esc(r.currency||"EUR")}</td><td>${fmt(r.insurable_turnover_original ?? r.insurable_turnover)}</td><td>${moneyText(r.insurable_turnover,"EUR")}</td><td>${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td>${moneyText(r.expected_premium_original ?? r.expected_premium,r.currency||"EUR")}</td><td>${moneyText(r.expected_premium,"EUR")}</td><td>${esc(r.premium_principle)}</td></tr>`;
+    return `<tr class="${statusClass}"><td data-col-key="Actions" class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td data-col-key="Files" class="files-cell">${fileCell}</td><td><b>${esc(r.prospect_name)}</b></td><td data-col-key="Policy ID">${esc(r.policy_id)}</td><td data-col-key="Customer ID">${esc(r.customer_id)}</td><td>${esc(r.customer_country)}</td><td data-col-key="Global country">${esc(r.global_country)}</td><td>${esc(r.sales_manager)}</td><td data-col-key="Broker">${esc(r.broker)}</td><td data-col-key="Broker contact">${esc(r.broker_contact)}</td><td>${esc(r.offer_deadline)}</td><td data-col-key="Days left" class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td data-col-key="Precheck">${esc(r.precheck)}</td><td data-col-key="Acceptance rate">${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td data-col-key="KAU">${esc(r.key_account_underwriter)}</td><td data-col-key="Opportunity type">${esc(r.opportunity_type)}</td><td data-col-key="Remarks" class="rem">${esc(r.prospect_remarks)}</td><td>${esc(r.status)}</td><td data-col-key="Currency">${esc(r.currency||"EUR")}</td><td data-col-key="Insurable turnover">${fmt(r.insurable_turnover_original ?? r.insurable_turnover)}</td><td data-col-key="Turnover EUR">${moneyText(r.insurable_turnover,"EUR")}</td><td data-col-key="Premium rate">${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td data-col-key="Expected premium">${moneyText(r.expected_premium_original ?? r.expected_premium,r.currency||"EUR")}</td><td>${moneyText(r.expected_premium,"EUR")}</td><td data-col-key="Premium principle">${esc(r.premium_principle)}</td></tr>`;
   }).join("");
-  applySavedColumnOrder();
+  alignBodyToHeader();
 }
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
 function show(x){$("dash").hidden=x!=="dash";$("pros").hidden=x!=="pros"}
@@ -380,6 +380,22 @@ function moveColumn(table,from,to){
   });
 }
 
+
+function alignBodyToHeader(){
+  const table=prospectTable();
+  if(!table||!table.tHead)return;
+  ensureColumnKeys();
+  const order=[...table.tHead.rows[0].cells].map(headerLabel);
+
+  [...table.tBodies[0].rows].forEach(row=>{
+    const byKey=new Map([...row.cells].map(td=>[td.dataset.colKey,td]));
+    order.forEach(key=>{
+      const td=byKey.get(key);
+      if(td) row.appendChild(td);
+    });
+  });
+}
+
 function currentColumnOrder(){
   const table=prospectTable();
   if(!table)return [];
@@ -404,6 +420,7 @@ function applySavedColumnOrder(){
     const from=headers.findIndex(th=>headerLabel(th)===key);
     if(from>=0 && from!==targetIndex) moveColumn(table,from,targetIndex);
   });
+  alignBodyToHeader();
 }
 
 function initDraggableColumns(){
