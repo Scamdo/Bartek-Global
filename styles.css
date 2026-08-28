@@ -9,3 +9,12 @@
 .toolbar select{padding:10px;border:1px solid #dfe2e6;border-radius:8px;background:#fff}
 .clickable{cursor:pointer}.clickable:hover{background:#faf1f2}
 @media(max-width:1000px){.dashboard-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)!important}}
+
+.docs-section{margin-top:20px;border-top:1px solid #e2e5e9;padding-top:18px}
+.docs-head h3{margin:0 0 3px}.docs-head p{margin:0 0 12px;color:#727b86;font-size:12px}
+.docs-locked{padding:12px;border-radius:8px;background:#f6f7f8;color:#727b86;font-size:12px}
+.docs-upload{display:grid;grid-template-columns:150px 1fr 1.2fr auto;gap:8px;align-items:center;margin-bottom:12px}
+.docs-upload input,.docs-upload select,.docs-upload button{padding:9px;border:1px solid #d9dde2;border-radius:7px;background:white}
+.document-row{display:grid;grid-template-columns:130px 1fr 120px auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #eceef0;font-size:12px}
+.document-row a{color:#b51218;font-weight:700;text-decoration:none}.document-row button{border:0;background:transparent;color:#b51218;cursor:pointer}
+@media(max-width:900px){.docs-upload,.document-row{grid-template-columns:1fr}}
