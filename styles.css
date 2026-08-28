@@ -134,3 +134,12 @@ thead .actions-col{
 #body tr.prospect-open td:first-child{border-left:4px solid #5f9f69}
 #body tr.prospect-lost td:first-child{border-left:4px solid #c44}
 #body tr.prospect-won td:first-child{border-left:4px solid #2f8a49}
+
+/* v1.5.0 financial formatting / currency */
+.hint{font-size:11px;color:#737b84;font-weight:400}
+#insurable_turnover[readonly],
+#expected_premium_original[readonly],
+#expected_premium[readonly]{
+  background:#f5f6f7;
+  font-weight:700;
+}

@@ -1,10 +1,19 @@
 const $=x=>document.getElementById(x);
-const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","insurable_turnover","premium_rate","expected_premium","premium_principle","closed_date"];
+const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
 let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={};
 
 const n=v=>Number(String(v??0).replace(/\s/g,"").replace(",",".").replace(/[^0-9.\-]/g,""))||0;
 const fmt=v=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n(v)).replace(/,/g," ");
 const pct=v=>n(String(v).replace("%",""));
+const moneyInt=v=>Math.round(n(v));
+const moneyText=(v,currency="EUR")=>`${currency||"EUR"} ${fmt(v)}`;
+const parseMoneyInput=v=>Math.round(Number(String(v??"").replace(/\s/g,"").replace(/[^0-9\-]/g,""))||0);
+function formatMoneyField(el){
+  if(!el)return;
+  const raw=String(el.value||"").trim();
+  if(raw===""){el.value="";return}
+  el.value=fmt(parseMoneyInput(raw));
+}
 const days=d=>d?Math.ceil((new Date(d+"T00:00:00")-new Date(new Date().toDateString()))/86400000):null;
 const esc=s=>String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 const uniq=k=>[...new Set(R.map(x=>x[k]).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b)));
@@ -52,10 +61,10 @@ function group(a,k){let o={};a.forEach(r=>{let x=r[k]||"Not set";o[x]=(o[x]||0)+
 function renderBars(id,obj,filterId){let el=$(id),entries=Object.entries(obj).sort((a,b)=>b[1]-a[1]),mx=Math.max(1,...entries.map(x=>x[1]));el.innerHTML=entries.length?entries.map(([k,v])=>`<div class="bar clickable" data-k="${esc(k)}"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${v/mx*100}%"></div></div><b>${v}</b></div>`).join(""):"<p>No data</p>";if(filterId)el.querySelectorAll(".bar").forEach(x=>x.onclick=()=>{$(filterId).value=x.dataset.k;render()})}
 function render(){
   let a=filtered();
-  $("total").textContent=a.length;$("open").textContent=a.filter(x=>statusLower(x)==="open").length;$("won").textContent=a.filter(x=>statusLower(x)==="won").length;$("lost").textContent=a.filter(x=>statusLower(x)==="lost").length;$("overdue").textContent=a.filter(x=>statusLower(x)==="open"&&days(x.offer_deadline)<0).length;$("due7").textContent=a.filter(x=>{let d=days(x.offer_deadline);return statusLower(x)==="open"&&d!==null&&d>=0&&d<=7}).length;$("premium").textContent=fmt(a.reduce((s,x)=>s+n(x.expected_premium),0));$("turnover").textContent=fmt(a.reduce((s,x)=>s+n(x.insurable_turnover),0));
+  $("total").textContent=a.length;$("open").textContent=a.filter(x=>statusLower(x)==="open").length;$("won").textContent=a.filter(x=>statusLower(x)==="won").length;$("lost").textContent=a.filter(x=>statusLower(x)==="lost").length;$("overdue").textContent=a.filter(x=>statusLower(x)==="open"&&days(x.offer_deadline)<0).length;$("due7").textContent=a.filter(x=>{let d=days(x.offer_deadline);return statusLower(x)==="open"&&d!==null&&d>=0&&d<=7}).length;$("premium").textContent=moneyText(a.reduce((s,x)=>s+n(x.expected_premium),0),"EUR");$("turnover").textContent=moneyText(a.reduce((s,x)=>s+n(x.insurable_turnover),0),"EUR");
   renderBars("countries",group(a,"customer_country"),"df");renderBars("managers",group(a,"sales_manager"),"mf");renderBars("brokers",group(a,"broker"),"bf");renderBars("statuses",group(a,"status"),"sf");
   let dl=a.filter(r=>statusLower(r)==="open"&&days(r.offer_deadline)!==null&&days(r.offer_deadline)<=30).sort((x,y)=>days(x.offer_deadline)-days(y.offer_deadline)).slice(0,20);
-  $("deadlineBody").innerHTML=dl.map(r=>`<tr><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.customer_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)}</td><td>${esc(r.status)}</td><td>${fmt(r.expected_premium)}</td></tr>`).join("");
+  $("deadlineBody").innerHTML=dl.map(r=>`<tr><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.customer_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)}</td><td>${esc(r.status)}</td><td>${moneyText(r.expected_premium,"EUR")}</td></tr>`).join("");
 }
 function prospectFiltered(){
   let q=$("search").value.toLowerCase().trim(),a=R.filter(r=>!q||Object.values(r).some(v=>String(v??"").toLowerCase().includes(q)));
@@ -70,19 +79,62 @@ function table(){
       ? `<button class="file-icon-btn" title="${fileCount} file${fileCount===1?"":"s"}" onclick="openFiles('${r.id}')">📎 <span>${fileCount}</span></button>`
       : `<span class="no-files" title="No files">—</span>`;
     const statusClass=(()=>{const s=statusLower(r);if(s==="won")return"prospect-won";if(s==="lost")return"prospect-lost";if(s==="open"||s==="ongoing")return"prospect-open";return"prospect-neutral"})();
-    return `<tr class="${statusClass}"><td class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td class="files-cell">${fileCell}</td><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.policy_id)}</td><td>${esc(r.customer_id)}</td><td>${esc(r.customer_country)}</td><td>${esc(r.global_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.broker)}</td><td>${esc(r.broker_contact)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td>${esc(r.precheck)}</td><td>${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td>${esc(r.key_account_underwriter)}</td><td>${esc(r.opportunity_type)}</td><td class="rem">${esc(r.prospect_remarks)}</td><td>${esc(r.status)}</td><td>${fmt(r.insurable_turnover)}</td><td>${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td>${fmt(r.expected_premium)}</td><td>${esc(r.premium_principle)}</td></tr>`;
+    return `<tr class="${statusClass}"><td class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td class="files-cell">${fileCell}</td><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.policy_id)}</td><td>${esc(r.customer_id)}</td><td>${esc(r.customer_country)}</td><td>${esc(r.global_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.broker)}</td><td>${esc(r.broker_contact)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td>${esc(r.precheck)}</td><td>${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td>${esc(r.key_account_underwriter)}</td><td>${esc(r.opportunity_type)}</td><td class="rem">${esc(r.prospect_remarks)}</td><td>${esc(r.status)}</td><td>${esc(r.currency||"EUR")}</td><td>${fmt(r.insurable_turnover_original ?? r.insurable_turnover)}</td><td>${moneyText(r.insurable_turnover,"EUR")}</td><td>${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td>${moneyText(r.expected_premium_original ?? r.expected_premium,r.currency||"EUR")}</td><td>${moneyText(r.expected_premium,"EUR")}</td><td>${esc(r.premium_principle)}</td></tr>`;
   }).join("");
   applySavedColumnOrder();
 }
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
 function show(x){$("dash").hidden=x!=="dash";$("pros").hidden=x!=="pros"}
-async function openForm(){ $("form").reset();$("id").value="";$("status").value="Open";$("opportunity_type").value="New Business";$("docsLocked").hidden=false;$("docsArea").hidden=true;$("documentsList").innerHTML="";$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview()}
+async function openForm(){ $("form").reset();$("id").value="";$("status").value="Open";$("opportunity_type").value="New Business";$("currency").value="EUR";$("fx_rate_to_eur").value="1";$("docsLocked").hidden=false;$("docsArea").hidden=true;$("documentsList").innerHTML="";$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview()}
 function calc(){
-  const turnoverRaw=$("insurable_turnover").value.trim();
+  const originalRaw=$("insurable_turnover_original").value.trim();
   const rateRaw=$("premium_rate").value.trim();
-  if(!turnoverRaw||!rateRaw){$("expected_premium").value="";return}
-  $("expected_premium").value=fmt(n(turnoverRaw)*pct(rateRaw)/100)
+  const fx=n($("fx_rate_to_eur").value)||0;
+  const currency=$("currency").value||"EUR";
+
+  if(originalRaw){
+    formatMoneyField($("insurable_turnover_original"));
+  }
+
+  const originalTurnover=parseMoneyInput($("insurable_turnover_original").value);
+  const eurTurnover=Math.round(originalTurnover*fx);
+
+  $("insurable_turnover").value=originalRaw&&fx ? fmt(eurTurnover) : "";
+
+  if(!originalRaw||!rateRaw){
+    $("expected_premium_original").value="";
+    $("expected_premium").value="";
+    return;
+  }
+
+  const originalPremium=Math.round(originalTurnover*pct(rateRaw)/100);
+  const eurPremium=Math.round(originalPremium*fx);
+
+  $("expected_premium_original").value=fmt(originalPremium);
+  $("expected_premium").value=fx ? fmt(eurPremium) : "";
 }
+
+window.currencyChanged=async ()=>{
+  const c=$("currency").value||"EUR";
+  $("fx_rate_to_eur").value=c==="EUR" ? "1" : "";
+  if(c==="EUR"){calc();return}
+  $("fx_rate_to_eur").placeholder="Loading latest FX...";
+  try{
+    const res=await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(c)}&to=EUR`);
+    if(!res.ok)throw new Error("FX service error");
+    const data=await res.json();
+    const rate=data?.rates?.EUR;
+    if(!rate)throw new Error("No EUR rate returned");
+    $("fx_rate_to_eur").value=Number(rate).toFixed(6);
+    $("fx_rate_to_eur").placeholder="1.000000";
+    calc();
+  }catch(e){
+    console.warn("Automatic FX lookup failed",e);
+    $("fx_rate_to_eur").value="";
+    $("fx_rate_to_eur").placeholder="Enter FX manually";
+    calc();
+  }
+};
 
 async function ensureCompany(r){
   if(!on)return null;
@@ -97,13 +149,27 @@ async function ensureCompany(r){
 }
 window.edit=async id=>{
   let r=R.find(x=>String(x.id)===String(id));if(!r)return;
-  F.forEach(k=>{if($(k))$(k).value=r[k]??""});$("id").value=id;$("docsLocked").hidden=true;$("docsArea").hidden=false;$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview();await loadDocuments(id)
+  F.forEach(k=>{if($(k))$(k).value=r[k]??""});
+  $("currency").value=r.currency||"EUR";
+  $("fx_rate_to_eur").value=r.fx_rate_to_eur ?? (r.currency&&r.currency!=="EUR" ? "" : "1");
+  $("insurable_turnover_original").value=fmt(r.insurable_turnover_original ?? r.insurable_turnover ?? 0);
+  $("insurable_turnover").value=fmt(r.insurable_turnover ?? 0);
+  $("expected_premium_original").value=fmt(r.expected_premium_original ?? r.expected_premium ?? 0);
+  $("expected_premium").value=fmt(r.expected_premium ?? 0);
+  $("id").value=id;$("docsLocked").hidden=true;$("docsArea").hidden=false;$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview();await loadDocuments(id)
 };
 window.del=async id=>{if(!confirm("Delete prospect?"))return;if(on){let x=await S.from("prospects").delete().eq("id",id);if(x.error)return alert(x.error.message)}R=R.filter(x=>String(x.id)!==String(id));if(!on)localStorage.gpm=JSON.stringify(R);opts();render();table()}
 
 $("form").onsubmit=async e=>{
   e.preventDefault();let r={};F.forEach(k=>r[k]=$(k).value);
-  r.insurable_turnover=n(r.insurable_turnover);r.expected_premium=n(r.expected_premium);r.premium_rate=pct(r.premium_rate);
+  r.currency=r.currency||"EUR";
+  r.fx_rate_to_eur=r.currency==="EUR"?1:n(r.fx_rate_to_eur);
+  if(!r.fx_rate_to_eur)return alert("FX to EUR is required for non-EUR currencies. Please wait for the automatic rate or enter it manually.");
+  r.insurable_turnover_original=parseMoneyInput(r.insurable_turnover_original);
+  r.insurable_turnover=Math.round(r.insurable_turnover_original*r.fx_rate_to_eur);
+  r.premium_rate=pct(r.premium_rate);
+  r.expected_premium_original=Math.round(r.insurable_turnover_original*r.premium_rate/100);
+  r.expected_premium=Math.round(r.expected_premium_original*r.fx_rate_to_eur);
   r.acceptance_rate=$("acceptance_rate").value.trim()===""?null:pct(r.acceptance_rate);
   r.offer_deadline=r.offer_deadline||null;
   r.closed_date=r.closed_date||null;
@@ -264,11 +330,19 @@ function initTabAutocomplete(){
 }
 
 function initAutomaticPremiumCalculation(){
-  const turnover=$("insurable_turnover"), rateInput=$("premium_rate");
-  if(!turnover||!rateInput)return;
+  const turnover=$("insurable_turnover_original"), rateInput=$("premium_rate"), fx=$("fx_rate_to_eur");
+  if(!turnover||!rateInput||!fx)return;
+
+  turnover.addEventListener("input",()=>{
+    const digits=String(turnover.value||"").replace(/\s/g,"").replace(/[^0-9\-]/g,"");
+    if(digits!=="") turnover.value=fmt(parseMoneyInput(digits));
+    calc();
+  });
+  turnover.addEventListener("blur",()=>{formatMoneyField(turnover);calc()});
+
   ["input","change","blur"].forEach(evt=>{
-    turnover.addEventListener(evt,calc);
     rateInput.addEventListener(evt,calc);
+    fx.addEventListener(evt,calc);
   });
 }
 
@@ -432,3 +506,12 @@ window.openFiles=async opportunityId=>{
 
   filesDlg.showModal();
 };
+
+
+// v1.5.0 - ensure formatted whole-unit monetary display after form opens/edits
+document.addEventListener("focusout",e=>{
+  if(e.target && ["insurable_turnover_original"].includes(e.target.id)){
+    formatMoneyField(e.target);
+    calc();
+  }
+});
