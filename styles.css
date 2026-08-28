@@ -18,3 +18,12 @@
 .document-row{display:grid;grid-template-columns:130px 1fr 120px auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #eceef0;font-size:12px}
 .document-row a{color:#b51218;font-weight:700;text-decoration:none}.document-row button{border:0;background:transparent;color:#b51218;cursor:pointer}
 @media(max-width:900px){.docs-upload,.document-row{grid-template-columns:1fr}}
+
+.calendar-section{margin-top:20px;border-top:1px solid #e2e5e9;padding-top:18px}
+.calendar-grid{display:grid;grid-template-columns:140px 140px 140px 1fr;gap:10px;align-items:end}
+.calendar-grid label{font-size:12px;font-weight:700}
+.calendar-grid input,.calendar-grid select{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #d9dde2;border-radius:7px;background:#fff}
+.calendar-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px}
+.calendar-footer div{font-size:12px;color:#5f6873;font-weight:700}
+.calendar-footer button{padding:10px 14px;border:0;border-radius:7px;background:#20242a;color:#fff;font-weight:700;cursor:pointer}
+@media(max-width:900px){.calendar-grid{grid-template-columns:1fr 1fr}.calendar-note{grid-column:1/-1}.calendar-footer{align-items:flex-start;flex-direction:column}}

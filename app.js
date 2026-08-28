@@ -58,7 +58,7 @@ function table(){
 }
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
 function show(x){$("dash").hidden=x!=="dash";$("pros").hidden=x!=="pros"}
-async function openForm(){ $("form").reset();$("id").value="";$("status").value="Open";$("opportunity_type").value="New Business";$("docsLocked").hidden=false;$("docsArea").hidden=true;$("documentsList").innerHTML="";dlg.showModal()}
+async function openForm(){ $("form").reset();$("id").value="";$("status").value="Open";$("opportunity_type").value="New Business";$("docsLocked").hidden=false;$("docsArea").hidden=true;$("documentsList").innerHTML="";$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview()}
 function calc(){$("expected_premium").value=fmt(n($("insurable_turnover").value)*pct($("premium_rate").value)/100)}
 
 async function ensureCompany(r){
@@ -74,7 +74,7 @@ async function ensureCompany(r){
 }
 window.edit=async id=>{
   let r=R.find(x=>String(x.id)===String(id));if(!r)return;
-  F.forEach(k=>{if($(k))$(k).value=r[k]??""});$("id").value=id;$("docsLocked").hidden=true;$("docsArea").hidden=false;dlg.showModal();await loadDocuments(id)
+  F.forEach(k=>{if($(k))$(k).value=r[k]??""});$("id").value=id;$("docsLocked").hidden=true;$("docsArea").hidden=false;$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview();await loadDocuments(id)
 };
 window.del=async id=>{if(!confirm("Delete prospect?"))return;if(on){let x=await S.from("prospects").delete().eq("id",id);if(x.error)return alert(x.error.message)}R=R.filter(x=>String(x.id)!==String(id));if(!on)localStorage.gpm=JSON.stringify(R);opts();render();table()}
 
@@ -129,3 +129,55 @@ function makeCsv(rows,name){if(!rows.length)return alert("No data to export.");l
 function exportCsv(){makeCsv(prospectFiltered(),"pipeline_report.csv")}
 function exportSummary(k){let o={};filtered().forEach(r=>{let x=r[k]||"Not set";o[x]??={name:x,total:0,open:0,won:0,lost:0,expected_premium:0,insurable_turnover:0};let z=o[x];z.total++;let s=statusLower(r);if(s==="open")z.open++;if(s==="won")z.won++;if(s==="lost")z.lost++;z.expected_premium+=n(r.expected_premium);z.insurable_turnover+=n(r.insurable_turnover)});makeCsv(Object.values(o),`${k}_summary.csv`)}
 init();
+function reminderDate(){
+  let amount=Math.max(0,parseInt($("reminder_amount").value||"0",10)),unit=$("reminder_unit").value;
+  let d=new Date();
+  if(unit==="days")d.setDate(d.getDate()+amount);
+  if(unit==="weeks")d.setDate(d.getDate()+amount*7);
+  if(unit==="months")d.setMonth(d.getMonth()+amount);
+  let [h,m]=($("reminder_time").value||"09:00").split(":").map(Number);
+  d.setHours(h||0,m||0,0,0); return d;
+}
+function updateReminderPreview(){
+  if(!$("reminder_preview"))return;
+  let d=reminderDate();
+  $("reminder_preview").textContent="Calendar date: "+d.toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+function icsDate(d){
+  const p=x=>String(x).padStart(2,"0");
+  return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"T"+p(d.getHours())+p(d.getMinutes())+"00";
+}
+function icsEscape(v){return String(v??"").replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/,/g,"\\,").replace(/;/g,"\\;")}
+function downloadCalendarReminder(){
+  let d=reminderDate(),end=new Date(d.getTime()+30*60000);
+  let note=$("reminder_note").value.trim()||"Follow up";
+  let title=($("prospect_name").value.trim()||"Pipeline opportunity")+" - "+note;
+  let lines=[
+    "Prospect: "+$("prospect_name").value,
+    "Policy ID: "+$("policy_id").value,
+    "Customer ID: "+$("customer_id").value,
+    "Customer country: "+$("customer_country").value,
+    "Global country: "+$("global_country").value,
+    "Sales Manager: "+$("sales_manager").value,
+    "Broker: "+$("broker").value,
+    "Broker contact: "+$("broker_contact").value,
+    "Status: "+$("status").value,
+    "Opportunity type: "+$("opportunity_type").value,
+    "Acceptance rate: "+($("acceptance_rate").value?$("acceptance_rate").value+"%":""),
+    "",
+    "Reminder: "+note,
+    "",
+    "Prospect remarks: "+$("prospect_remarks").value
+  ];
+  let ics=[
+    "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Global Pipeline Manager//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+    "BEGIN:VEVENT","UID:"+crypto.randomUUID()+"@global-pipeline-manager",
+    "DTSTAMP:"+icsDate(new Date()),"DTSTART:"+icsDate(d),"DTEND:"+icsDate(end),
+    "SUMMARY:"+icsEscape(title),"DESCRIPTION:"+icsEscape(lines.join("\n")),
+    "BEGIN:VALARM","TRIGGER:-PT0M","ACTION:DISPLAY","DESCRIPTION:"+icsEscape(title),"END:VALARM",
+    "END:VEVENT","END:VCALENDAR"
+  ].join("\r\n");
+  let b=new Blob([ics],{type:"text/calendar;charset=utf-8"}),a=document.createElement("a");
+  a.href=URL.createObjectURL(b);a.download=(($("prospect_name").value||"pipeline").replace(/[^a-zA-Z0-9_-]/g,"_"))+"_reminder.ics";
+  document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href)
+}
