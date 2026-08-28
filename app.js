@@ -59,7 +59,12 @@ function table(){
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
 function show(x){$("dash").hidden=x!=="dash";$("pros").hidden=x!=="pros"}
 async function openForm(){ $("form").reset();$("id").value="";$("status").value="Open";$("opportunity_type").value="New Business";$("docsLocked").hidden=false;$("docsArea").hidden=true;$("documentsList").innerHTML="";$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview()}
-function calc(){$("expected_premium").value=fmt(n($("insurable_turnover").value)*pct($("premium_rate").value)/100)}
+function calc(){
+  const turnoverRaw=$("insurable_turnover").value.trim();
+  const rateRaw=$("premium_rate").value.trim();
+  if(!turnoverRaw||!rateRaw){$("expected_premium").value="";return}
+  $("expected_premium").value=fmt(n(turnoverRaw)*pct(rateRaw)/100)
+}
 
 async function ensureCompany(r){
   if(!on)return null;
