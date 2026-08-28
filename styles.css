@@ -143,3 +143,18 @@ thead .actions-col{
   background:#f5f6f7;
   font-weight:700;
 }
+
+/* v1.5.6 clearer pipeline status colours
+   Open/Ongoing = light amber, Won = green, Lost = light red */
+#body tr.prospect-open td{background:#fff8e6}
+#body tr.prospect-won td{background:#e9f7ec}
+#body tr.prospect-lost td{background:#fff0f0}
+#body tr.prospect-neutral td{background:#fff}
+
+#body tr.prospect-open:hover td{background:#fff1cc}
+#body tr.prospect-won:hover td{background:#dff2e3}
+#body tr.prospect-lost:hover td{background:#ffe3e3}
+
+#body tr.prospect-open td:first-child{border-left:4px solid #e0a72f}
+#body tr.prospect-won td:first-child{border-left:4px solid #2f8a49}
+#body tr.prospect-lost td:first-child{border-left:4px solid #c74444}
