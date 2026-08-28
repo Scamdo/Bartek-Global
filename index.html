@@ -60,7 +60,10 @@
 <select id="currency" onchange="currencyChanged()">
 <option>EUR</option><option>CHF</option><option>PLN</option><option>USD</option><option>GBP</option><option>CZK</option><option>HUF</option><option>RON</option><option>TRY</option><option>RSD</option><option>SEK</option><option>NOK</option><option>DKK</option><option>AED</option><option>SAR</option><option>ZAR</option><option>CNY</option><option>JPY</option><option>BRL</option><option>MXN</option><option>INR</option><option>BGN</option>
 </select></label>
-<label>FX to EUR <span class="hint">(1 currency unit = EUR)</span><input id="fx_rate_to_eur" inputmode="decimal" placeholder="1.000000" oninput="calc()"></label>
+<label>FX to EUR <span class="hint">(automatic indicative rate - editable)</span>
+<input id="fx_rate_to_eur" inputmode="decimal" placeholder="1.000000" oninput="calc()">
+<span id="fx_info" class="hint"></span>
+</label>
 <label>Insurable turnover<input id="insurable_turnover_original" inputmode="numeric" placeholder="700 000 000"></label>
 <label>Turnover EUR<input id="insurable_turnover" readonly></label>
 <label>Premium rate<input id="premium_rate" placeholder="0.056%"></label>

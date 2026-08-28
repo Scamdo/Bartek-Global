@@ -2,7 +2,7 @@ const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
 let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={};
 
-const n=v=>Number(String(v??0).replace(/\s/g,"").replace(",",".").replace(/[^0-9.\-]/g,""))||0;
+const n=v=>Number(String(v??"").trim().replace(/\s/g,"").replace(",", "."))||0;
 const fmt=v=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n(v)).replace(/,/g," ");
 const pct=v=>n(String(v).replace("%",""));
 const moneyInt=v=>Math.round(n(v));
@@ -85,7 +85,7 @@ function table(){
 }
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
 function show(x){$("dash").hidden=x!=="dash";$("pros").hidden=x!=="pros"}
-async function openForm(){ $("form").reset();$("id").value="";$("status").value="Open";$("opportunity_type").value="New Business";$("currency").value="EUR";$("fx_rate_to_eur").value="1";$("docsLocked").hidden=false;$("docsArea").hidden=true;$("documentsList").innerHTML="";$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview()}
+async function openForm(){ $("form").reset();$("id").value="";$("status").value="Open";$("opportunity_type").value="New Business";$("currency").value="EUR";$("fx_rate_to_eur").value="1";if($("fx_info"))$("fx_info").textContent="EUR base currency";$("docsLocked").hidden=false;$("docsArea").hidden=true;$("documentsList").innerHTML="";$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview()}
 function calc(){
   const originalRaw=$("insurable_turnover_original").value.trim();
   const rateRaw=$("premium_rate").value.trim();
@@ -117,21 +117,26 @@ function calc(){
 window.currencyChanged=async ()=>{
   const c=$("currency").value||"EUR";
   $("fx_rate_to_eur").value=c==="EUR" ? "1" : "";
-  if(c==="EUR"){calc();return}
-  $("fx_rate_to_eur").placeholder="Loading latest FX...";
+  if(c==="EUR"){
+    if($("fx_info")) $("fx_info").textContent="EUR base currency";
+    calc();return
+  }
+  $("fx_rate_to_eur").placeholder="Loading latest FX...";$("fx_rate_to_eur").value="";
   try{
-    const res=await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(c)}&to=EUR`);
-    if(!res.ok)throw new Error("FX service error");
+    const res=await fetch(`https://api.frankfurter.dev/v2/rate/${encodeURIComponent(c)}/EUR`);
+    if(!res.ok)throw new Error(`FX service error ${res.status}`);
     const data=await res.json();
-    const rate=data?.rates?.EUR;
+    const rate=data?.rate;
     if(!rate)throw new Error("No EUR rate returned");
     $("fx_rate_to_eur").value=Number(rate).toFixed(6);
     $("fx_rate_to_eur").placeholder="1.000000";
+    if($("fx_info")) $("fx_info").textContent=`Indicative market rate${data?.date ? " - "+data.date : ""}`;
     calc();
   }catch(e){
     console.warn("Automatic FX lookup failed",e);
     $("fx_rate_to_eur").value="";
     $("fx_rate_to_eur").placeholder="Enter FX manually";
+    if($("fx_info")) $("fx_info").textContent="Automatic FX unavailable - enter an indicative rate manually";
     calc();
   }
 };
@@ -152,6 +157,7 @@ window.edit=async id=>{
   F.forEach(k=>{if($(k))$(k).value=r[k]??""});
   $("currency").value=r.currency||"EUR";
   $("fx_rate_to_eur").value=r.fx_rate_to_eur ?? (r.currency&&r.currency!=="EUR" ? "" : "1");
+  if($("fx_info")) $("fx_info").textContent=(r.currency||"EUR")==="EUR" ? "EUR base currency" : "Saved indicative FX rate - editable";
   $("insurable_turnover_original").value=fmt(r.insurable_turnover_original ?? r.insurable_turnover ?? 0);
   $("insurable_turnover").value=fmt(r.insurable_turnover ?? 0);
   $("expected_premium_original").value=fmt(r.expected_premium_original ?? r.expected_premium ?? 0);
@@ -539,3 +545,12 @@ document.addEventListener("focusout",e=>{
 
 // v1.5.2 cleanup: remove obsolete column layout saved by pre-fix versions.
 try{ localStorage.removeItem("gpmProspectColumnOrderV1"); }catch(e){}
+
+// v1.5.3 - retry FX automatically if the selected non-EUR currency has no rate yet.
+const fxField=$("fx_rate_to_eur");
+if(fxField){
+  fxField.addEventListener("focus",()=>{
+    const c=$("currency")?.value||"EUR";
+    if(c!=="EUR" && !fxField.value.trim()) currencyChanged();
+  });
+}
