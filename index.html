@@ -1,13 +1,61 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Global Pipeline Manager</title><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body>
 <aside><h2>Global Pipeline</h2><button onclick="show('dash')">Dashboard</button><button onclick="show('pros')">Prospects</button><small id="mode">Connecting...</small></aside>
 <main><header><div><h1>Global Pipeline Manager</h1><p>Commercial pipeline overview</p></div><button class="red" onclick="openForm()">+ New prospect</button></header>
-<section id="dash"><div class="filters"><select id="df" onchange="render()"><option value="">All countries</option></select><select id="sf" onchange="render()"><option value="">All statuses</option></select></div><div class="kpis"><div><span>Total prospects</span><b id="total">0</b></div><div><span>Open</span><b id="open">0</b></div><div><span>Won</span><b id="won">0</b></div><div><span>Overdue</span><b id="overdue">0</b></div><div><span>Expected premium</span><b id="premium">0</b></div></div><article><h3>Country performance</h3><div id="countries"></div></article></section>
-<section id="pros" hidden><article><div class="toolbar"><input id="search" placeholder="Search prospect, policy, broker or remarks" oninput="table()"><button onclick="exportCsv()">Export visible CSV</button></div><div class="wrap"><table><thead><tr><th>Prospect name</th><th>Policy ID</th><th>Customer ID</th><th>Customer country</th><th>Global country</th><th>Sales Manager</th><th>Broker</th><th>Broker contact</th><th>Offer deadline</th><th>Days left</th><th>Precheck</th><th>KAU</th><th>Remarks</th><th>Status</th><th>Insurable turnover</th><th>Premium rate</th><th>Expected premium</th><th>Premium principle</th><th></th></tr></thead><tbody id="body"></tbody></table></div></article></section>
+<section id="dash">
+<div class="filters dashboard-filters">
+  <select id="df" onchange="render()"><option value="">All customer countries</option></select>
+  <select id="gf" onchange="render()"><option value="">All global countries</option></select>
+  <select id="mf" onchange="render()"><option value="">All Sales Managers</option></select>
+  <select id="bf" onchange="render()"><option value="">All brokers</option></select>
+  <select id="sf" onchange="render()"><option value="">All statuses</option></select>
+  <select id="deadlinef" onchange="render()">
+    <option value="">All deadlines</option>
+    <option value="overdue">Overdue</option>
+    <option value="7">Due within 7 days</option>
+    <option value="30">Due within 30 days</option>
+    <option value="none">No deadline</option>
+  </select>
+  <button onclick="resetDashboardFilters()">Reset filters</button>
+</div>
+<div class="kpis">
+  <div><span>Total prospects</span><b id="total">0</b></div>
+  <div><span>Open</span><b id="open">0</b></div>
+  <div><span>Won</span><b id="won">0</b></div>
+  <div><span>Lost</span><b id="lost">0</b></div>
+  <div><span>Overdue</span><b id="overdue">0</b></div>
+  <div><span>Due within 7 days</span><b id="due7">0</b></div>
+  <div><span>Expected premium</span><b id="premium">0</b></div>
+  <div><span>Insurable turnover</span><b id="turnover">0</b></div>
+</div>
+<div class="dashboard-grid">
+  <article><div class="article-head"><h3>Customer country</h3><button onclick="exportSummary('customer_country')">Export</button></div><div id="countries"></div></article>
+  <article><div class="article-head"><h3>Sales Manager</h3><button onclick="exportSummary('sales_manager')">Export</button></div><div id="managers"></div></article>
+  <article><div class="article-head"><h3>Broker</h3><button onclick="exportSummary('broker')">Export</button></div><div id="brokers"></div></article>
+  <article><div class="article-head"><h3>Status</h3></div><div id="statuses"></div></article>
+</div>
+<article>
+  <div class="article-head"><h3>Deadlines requiring attention</h3></div>
+  <div class="wrap deadline-wrap"><table><thead><tr><th>Prospect</th><th>Country</th><th>Sales Manager</th><th>Deadline</th><th>Days left</th><th>Status</th><th>Expected premium</th></tr></thead><tbody id="deadlineBody"></tbody></table></div>
+</article>
+</section>
+<section id="pros" hidden><article>
+<div class="toolbar">
+  <input id="search" placeholder="Search prospect, policy, broker, contact or remarks" oninput="table()">
+  <select id="ptStatus" onchange="table()"><option value="">All statuses</option></select>
+  <select id="ptCountry" onchange="table()"><option value="">All countries</option></select>
+  <select id="ptManager" onchange="table()"><option value="">All managers</option></select>
+  <select id="ptBroker" onchange="table()"><option value="">All brokers</option></select>
+  <button onclick="exportCsv()">Export visible CSV</button>
+  <button onclick="exportSummary('customer_country')">Country report</button>
+  <button onclick="exportSummary('sales_manager')">Manager report</button>
+  <button onclick="exportSummary('broker')">Broker report</button>
+</div>
+<div class="wrap"><table><thead><tr><th>Prospect name</th><th>Policy ID</th><th>Customer ID</th><th>Customer country</th><th>Global country</th><th>Sales Manager</th><th>Broker</th><th>Broker contact</th><th>Offer deadline</th><th>Days left</th><th>Precheck</th><th>KAU</th><th>Remarks</th><th>Status</th><th>Insurable turnover</th><th>Premium rate</th><th>Expected premium</th><th>Premium principle</th><th></th></tr></thead><tbody id="body"></tbody></table></div></article></section>
 </main>
 <dialog id="dlg"><form id="form"><h2>Prospect</h2><input type="hidden" id="id"><div class="grid">
 <label>Prospect name<input id="prospect_name" required></label><label>Policy ID<input id="policy_id"></label><label>Customer ID<input id="customer_id"></label><label>Customer country<input id="customer_country" list="countriesList"></label>
-<label>Global country<input id="global_country"></label><label>Sales Manager<input id="sales_manager" list="managersList"></label><label>Broker<input id="broker" list="brokersList"></label><label>Broker contact<input id="broker_contact"></label>
-<label>Offer deadline<input id="offer_deadline" type="date"></label><label>Precheck<select id="precheck"><option></option><option>YES</option><option>NO</option></select></label><label>Key Account Underwriter<input id="key_account_underwriter"></label><label>Status<select id="status"><option>Open</option><option>On hold</option><option>Won</option><option>Lost</option><option>Closed</option></select></label>
+<label>Global country<input id="global_country" list="globalsList"></label><label>Sales Manager<input id="sales_manager" list="managersList"></label><label>Broker<input id="broker" list="brokersList"></label><label>Broker contact<input id="broker_contact" list="contactsList"></label>
+<label>Offer deadline<input id="offer_deadline" type="date"></label><label>Precheck<select id="precheck"><option></option><option>YES</option><option>NO</option></select></label><label>Key Account Underwriter<input id="key_account_underwriter" list="kauList"></label><label>Status<select id="status"><option>Open</option><option>On hold</option><option>Won</option><option>Lost</option><option>Closed</option></select></label>
 <label>Insurable turnover<input id="insurable_turnover" placeholder="700 000 000"></label><label>Premium rate<input id="premium_rate" placeholder="0.056%"></label><label>Expected premium<input id="expected_premium"></label><label>Premium principle<select id="premium_principle"><option value="turnover">turnover</option><option value="outstanding balance">outstanding balance</option><option value="TPE based">TPE based</option><option value="other">other</option></select></label>
 <label class="full">Prospect remarks<textarea id="prospect_remarks"></textarea></label></div><div class="actions"><button type="button" onclick="calc()">Calculate premium</button><button type="button" onclick="dlg.close()">Cancel</button><button class="red">Save prospect</button></div></form></dialog>
-<datalist id="countriesList"></datalist><datalist id="managersList"></datalist><datalist id="brokersList"></datalist><script src="config.js"></script><script src="app.js"></script></body></html>
+<datalist id="countriesList"></datalist><datalist id="globalsList"></datalist><datalist id="managersList"></datalist><datalist id="brokersList"></datalist><datalist id="contactsList"></datalist><datalist id="kauList"></datalist><script src="config.js"></script><script src="app.js"></script></body></html>
