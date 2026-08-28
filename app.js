@@ -182,3 +182,29 @@ function downloadCalendarReminder(){
   a.href=URL.createObjectURL(b);a.download=(($("prospect_name").value||"pipeline").replace(/[^a-zA-Z0-9_-]/g,"_"))+"_reminder.ics";
   document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href)
 }
+
+function enableTabAutocomplete(inputId,listId){
+  const input=$(inputId), list=$(listId);
+  if(!input||!list)return;
+  input.addEventListener("keydown",e=>{
+    if(e.key!=="Tab")return;
+    const typed=input.value.trim().toLowerCase();
+    if(!typed)return;
+    const options=[...list.options].map(o=>o.value).filter(Boolean);
+    if(options.some(v=>v.toLowerCase()===typed))return;
+    const matches=options.filter(v=>v.toLowerCase().startsWith(typed));
+    if(matches.length===1)input.value=matches[0];
+  });
+}
+function initTabAutocomplete(){
+  [
+    ["customer_country","countriesList"],
+    ["global_country","globalsList"],
+    ["sales_manager","managersList"],
+    ["broker","brokersList"],
+    ["broker_contact","contactsList"],
+    ["key_account_underwriter","kauList"]
+  ].forEach(([inputId,listId])=>enableTabAutocomplete(inputId,listId));
+}
+
+initTabAutocomplete();
