@@ -51,3 +51,86 @@ thead .actions-col{
 .dragging-col{opacity:.45}
 .drag-over-col{box-shadow:inset 3px 0 0 #b51218}
 #expected_premium[readonly]{background:#f5f6f7;font-weight:700}
+
+/* v1.4.7 files visibility in Prospects */
+.files-col,.files-cell{
+  text-align:center;
+  white-space:nowrap;
+  min-width:72px;
+}
+.file-icon-btn{
+  border:1px solid #d9dde2;
+  background:#fff;
+  border-radius:8px;
+  padding:6px 9px;
+  cursor:pointer;
+  font-size:14px;
+  line-height:1;
+}
+.file-icon-btn:hover{background:#f7f7f8;border-color:#b51218}
+.file-icon-btn span{
+  font-size:11px;
+  font-weight:700;
+  margin-left:3px;
+}
+.no-files{color:#adb3ba}
+.files-dialog{
+  width:min(720px,92vw);
+  border:0;
+  border-radius:12px;
+  padding:0;
+  box-shadow:0 18px 60px rgba(0,0,0,.22);
+}
+.files-dialog::backdrop{background:rgba(0,0,0,.35)}
+.files-dialog-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  padding:18px 20px;
+  border-bottom:1px solid #e7e9ec;
+}
+.files-dialog-head h3{margin:0 0 4px}
+.files-dialog-head p{margin:0;color:#6c7480;font-size:12px}
+.files-dialog-head button{
+  border:0;background:transparent;font-size:24px;cursor:pointer;line-height:1
+}
+.quick-files-list{padding:10px 20px 20px}
+.quick-file-row{
+  display:grid;
+  grid-template-columns:48px 1fr 90px;
+  gap:12px;
+  align-items:center;
+  padding:12px 0;
+  border-bottom:1px solid #eceef0;
+}
+.quick-file-icon{
+  width:40px;height:40px;border-radius:8px;
+  background:#f4e8e9;color:#b51218;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;
+}
+.quick-file-main a{color:#b51218;font-weight:700;text-decoration:none}
+.quick-file-main div{font-size:12px;color:#69727c;margin-top:3px}
+.quick-file-date{font-size:12px;color:#69727c;text-align:right}
+
+/* v1.4.8 status-based prospect row highlighting */
+#body tr.prospect-open td{background:#f2f8f2}
+#body tr.prospect-lost td{background:#fff1f1}
+#body tr.prospect-won td{background:#edf8ee}
+#body tr.prospect-neutral td{background:#fff}
+
+#body tr.prospect-open:hover td{background:#e8f3e8}
+#body tr.prospect-lost:hover td{background:#ffe5e5}
+#body tr.prospect-won:hover td{background:#e0f2e2}
+
+#body tr.prospect-open .actions-cell,
+#body tr.prospect-lost .actions-cell,
+#body tr.prospect-won .actions-cell,
+#body tr.prospect-neutral .actions-cell{
+  box-shadow:inset -1px 0 0 #e5e8eb;
+}
+
+#body tr.prospect-open td:first-child{border-left:4px solid #5f9f69}
+#body tr.prospect-lost td:first-child{border-left:4px solid #c44}
+#body tr.prospect-won td:first-child{border-left:4px solid #2f8a49}

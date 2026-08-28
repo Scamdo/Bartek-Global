@@ -1,6 +1,6 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","insurable_turnover","premium_rate","expected_premium","premium_principle","closed_date"];
-let R=[],S=null,on=false,COMPANIES=[];
+let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={};
 
 const n=v=>Number(String(v??0).replace(/\s/g,"").replace(",",".").replace(/[^0-9.\-]/g,""))||0;
 const fmt=v=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n(v)).replace(/,/g," ");
@@ -18,6 +18,13 @@ async function init(){
     R=x.data||[];
     let c=await S.from("companies").select("*");
     COMPANIES=c.error?[]:(c.data||[]);
+    let docs=await S.from("opportunity_documents").select("id,opportunity_id,document_type,description,file_path,file_name,created_at").order("created_at",{ascending:false});
+    DOCS_BY_OPPORTUNITY={};
+    if(!docs.error){
+      (docs.data||[]).forEach(d=>{
+        (DOCS_BY_OPPORTUNITY[d.opportunity_id]??=[]).push(d);
+      });
+    }
     on=true;$("mode").textContent="Shared online database";
   }catch(e){
     console.warn(e);R=JSON.parse(localStorage.gpm||"[]");$("mode").textContent="Local demo mode";
@@ -30,6 +37,9 @@ function opts(){
   let countries=uniq("customer_country"),globals=uniq("global_country"),managers=uniq("sales_manager"),brokers=uniq("broker"),statuses=uniq("status");
   setSelect("df",countries,"All customer countries");setSelect("gf",globals,"All global countries");setSelect("mf",managers,"All Sales Managers");setSelect("bf",brokers,"All brokers");setSelect("sf",statuses,"All statuses");
   setSelect("ptStatus",statuses,"All statuses");setSelect("ptCountry",countries,"All countries");setSelect("ptManager",managers,"All managers");setSelect("ptBroker",brokers,"All brokers");
+  setList("prospectsList",[...new Set([...uniq("prospect_name"),...COMPANIES.map(c=>c.company_name).filter(Boolean)])].sort());
+  setList("policiesList",uniq("policy_id"));
+  setList("customerIdsList",uniq("customer_id"));
   setList("countriesList",countries);setList("globalsList",globals);setList("managersList",managers);setList("brokersList",brokers);setList("contactsList",uniq("broker_contact"));setList("kauList",uniq("key_account_underwriter"));
 }
 function filtered(){
@@ -54,7 +64,14 @@ function prospectFiltered(){
 }
 function table(){
   let a=prospectFiltered();
-  $("body").innerHTML=a.map(r=>`<tr><td class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.policy_id)}</td><td>${esc(r.customer_id)}</td><td>${esc(r.customer_country)}</td><td>${esc(r.global_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.broker)}</td><td>${esc(r.broker_contact)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td>${esc(r.precheck)}</td><td>${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td>${esc(r.key_account_underwriter)}</td><td>${esc(r.opportunity_type)}</td><td class="rem">${esc(r.prospect_remarks)}</td><td>${esc(r.status)}</td><td>${fmt(r.insurable_turnover)}</td><td>${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td>${fmt(r.expected_premium)}</td><td>${esc(r.premium_principle)}</td></tr>`).join("");
+  $("body").innerHTML=a.map(r=>{
+    const fileCount=(DOCS_BY_OPPORTUNITY[r.id]||[]).length;
+    const fileCell=fileCount
+      ? `<button class="file-icon-btn" title="${fileCount} file${fileCount===1?"":"s"}" onclick="openFiles('${r.id}')">📎 <span>${fileCount}</span></button>`
+      : `<span class="no-files" title="No files">—</span>`;
+    const statusClass=(()=>{const s=statusLower(r);if(s==="won")return"prospect-won";if(s==="lost")return"prospect-lost";if(s==="open"||s==="ongoing")return"prospect-open";return"prospect-neutral"})();
+    return `<tr class="${statusClass}"><td class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td class="files-cell">${fileCell}</td><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.policy_id)}</td><td>${esc(r.customer_id)}</td><td>${esc(r.customer_country)}</td><td>${esc(r.global_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.broker)}</td><td>${esc(r.broker_contact)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td>${esc(r.precheck)}</td><td>${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td>${esc(r.key_account_underwriter)}</td><td>${esc(r.opportunity_type)}</td><td class="rem">${esc(r.prospect_remarks)}</td><td>${esc(r.status)}</td><td>${fmt(r.insurable_turnover)}</td><td>${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td>${fmt(r.expected_premium)}</td><td>${esc(r.premium_principle)}</td></tr>`;
+  }).join("");
   applySavedColumnOrder();
 }
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
@@ -121,6 +138,8 @@ async function loadDocuments(opportunityId){
   if(!on)return;
   let x=await S.from("opportunity_documents").select("*").eq("opportunity_id",opportunityId).order("created_at",{ascending:false});
   if(x.error){$("documentsList").innerHTML=`<p>${esc(x.error.message)}</p>`;return}
+  DOCS_BY_OPPORTUNITY[opportunityId]=x.data||[];
+  table();
   $("documentsList").innerHTML=x.data.length?x.data.map(d=>{
     let {data}=S.storage.from("offers").getPublicUrl(d.file_path);
     return `<div class="document-row"><b>${esc(d.document_type)}</b><div><a href="${data.publicUrl}" target="_blank" rel="noopener">${esc(d.file_name)}</a><br><span>${esc(d.description||"")}</span></div><span>${new Date(d.created_at).toLocaleDateString("en-GB")}</span><button type="button" onclick="deleteDocument('${d.id}','${esc(d.file_path)}')">Delete</button></div>`
@@ -189,33 +208,60 @@ function downloadCalendarReminder(){
   document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href)
 }
 
-function enableTabAutocomplete(inputId,listId){
+
+function autocompleteField(inputId,listId){
   const input=$(inputId), list=$(listId);
-  if(!input||!list)return;
-  input.addEventListener("keydown",e=>{
-    if(e.key!=="Tab")return;
+  if(!input||!list||input.dataset.smartAutocomplete==="1")return;
+  input.dataset.smartAutocomplete="1";
+
+  function completeIfUnique(){
     const typed=input.value.trim().toLowerCase();
-    if(!typed)return;
+    if(!typed)return false;
     const options=[...list.options].map(o=>o.value).filter(Boolean);
-    if(options.some(v=>v.toLowerCase()===typed))return;
-    const matches=options.filter(v=>v.toLowerCase().startsWith(typed));
-    if(matches.length===1)input.value=matches[0];
+    const exact=options.find(v=>v.toLowerCase()===typed);
+    if(exact){input.value=exact;return true}
+
+    // First prefer prefix matches: "sw" -> "Switzerland"
+    let matches=options.filter(v=>v.toLowerCase().startsWith(typed));
+
+    // If no prefix match, allow a unique contains match.
+    if(matches.length===0){
+      matches=options.filter(v=>v.toLowerCase().includes(typed));
+    }
+
+    if(matches.length===1){
+      input.value=matches[0];
+      return true;
+    }
+    return false;
+  }
+
+  input.addEventListener("keydown",e=>{
+    if(e.key==="Tab"){
+      completeIfUnique();
+      // Normal Tab navigation continues automatically.
+    } else if(e.key==="Enter"){
+      if(completeIfUnique()) e.preventDefault();
+    }
   });
+
+  // Also complete when leaving the field with mouse/click if the match is unique.
+  input.addEventListener("blur",()=>completeIfUnique());
 }
+
 function initTabAutocomplete(){
   [
+    ["prospect_name","prospectsList"],
+    ["policy_id","policiesList"],
+    ["customer_id","customerIdsList"],
     ["customer_country","countriesList"],
     ["global_country","globalsList"],
     ["sales_manager","managersList"],
     ["broker","brokersList"],
     ["broker_contact","contactsList"],
     ["key_account_underwriter","kauList"]
-  ].forEach(([inputId,listId])=>enableTabAutocomplete(inputId,listId));
+  ].forEach(([inputId,listId])=>autocompleteField(inputId,listId));
 }
-
-initTabAutocomplete();
-
-// --- v1.4.5: reliable live premium calculation + draggable Prospect columns ---
 
 function initAutomaticPremiumCalculation(){
   const turnover=$("insurable_turnover"), rateInput=$("premium_rate");
@@ -349,3 +395,40 @@ function resetColumnOrder(){
 
 initAutomaticPremiumCalculation();
 initDraggableColumns();
+
+
+window.openFiles=async opportunityId=>{
+  const r=R.find(x=>String(x.id)===String(opportunityId));
+  if(!r)return;
+  $("filesDlgTitle").textContent=(r.prospect_name||"Prospect")+" - Files";
+  $("filesDlgMeta").textContent=[r.policy_id?("Policy ID: "+r.policy_id):"",r.customer_id?("Customer ID: "+r.customer_id):""].filter(Boolean).join(" | ");
+
+  let docs=DOCS_BY_OPPORTUNITY[opportunityId]||[];
+  if(on){
+    const x=await S.from("opportunity_documents").select("*").eq("opportunity_id",opportunityId).order("created_at",{ascending:false});
+    if(!x.error){
+      docs=x.data||[];
+      DOCS_BY_OPPORTUNITY[opportunityId]=docs;
+      table();
+    }
+  }
+
+  $("quickFilesList").innerHTML=docs.length ? docs.map(d=>{
+    let url="#";
+    if(on){
+      const {data}=S.storage.from("offers").getPublicUrl(d.file_path);
+      url=data.publicUrl;
+    }
+    const date=d.created_at?new Date(d.created_at).toLocaleDateString("en-GB"):"";
+    return `<div class="quick-file-row">
+      <div class="quick-file-icon">PDF</div>
+      <div class="quick-file-main">
+        <a href="${url}" target="_blank" rel="noopener">${esc(d.file_name)}</a>
+        <div>${esc(d.document_type||"Document")}${d.description?" - "+esc(d.description):""}</div>
+      </div>
+      <div class="quick-file-date">${date}</div>
+    </div>`;
+  }).join("") : '<p>No files attached.</p>';
+
+  filesDlg.showModal();
+};
