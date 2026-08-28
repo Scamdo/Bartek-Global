@@ -44,3 +44,10 @@ thead .actions-col{
 .actions-cell button{
   margin-right:4px;
 }
+
+/* v1.4.5 draggable columns */
+.draggable-col{cursor:grab;user-select:none}
+.draggable-col:active{cursor:grabbing}
+.dragging-col{opacity:.45}
+.drag-over-col{box-shadow:inset 3px 0 0 #b51218}
+#expected_premium[readonly]{background:#f5f6f7;font-weight:700}

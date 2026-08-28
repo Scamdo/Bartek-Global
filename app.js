@@ -54,7 +54,8 @@ function prospectFiltered(){
 }
 function table(){
   let a=prospectFiltered();
-  $("body").innerHTML=a.map(r=>`<tr><td class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.policy_id)}</td><td>${esc(r.customer_id)}</td><td>${esc(r.customer_country)}</td><td>${esc(r.global_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.broker)}</td><td>${esc(r.broker_contact)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td>${esc(r.precheck)}</td><td>${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td>${esc(r.key_account_underwriter)}</td><td>${esc(r.opportunity_type)}</td><td class="rem">${esc(r.prospect_remarks)}</td><td>${esc(r.status)}</td><td>${fmt(r.insurable_turnover)}</td><td>${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td>${fmt(r.expected_premium)}</td><td>${esc(r.premium_principle)}</td></tr>`).join("")
+  $("body").innerHTML=a.map(r=>`<tr><td class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.policy_id)}</td><td>${esc(r.customer_id)}</td><td>${esc(r.customer_country)}</td><td>${esc(r.global_country)}</td><td>${esc(r.sales_manager)}</td><td>${esc(r.broker)}</td><td>${esc(r.broker_contact)}</td><td>${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td>${esc(r.precheck)}</td><td>${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td>${esc(r.key_account_underwriter)}</td><td>${esc(r.opportunity_type)}</td><td class="rem">${esc(r.prospect_remarks)}</td><td>${esc(r.status)}</td><td>${fmt(r.insurable_turnover)}</td><td>${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td>${fmt(r.expected_premium)}</td><td>${esc(r.premium_principle)}</td></tr>`).join("");
+  applySavedColumnOrder();
 }
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
 function show(x){$("dash").hidden=x!=="dash";$("pros").hidden=x!=="pros"}
@@ -213,3 +214,138 @@ function initTabAutocomplete(){
 }
 
 initTabAutocomplete();
+
+// --- v1.4.5: reliable live premium calculation + draggable Prospect columns ---
+
+function initAutomaticPremiumCalculation(){
+  const turnover=$("insurable_turnover"), rateInput=$("premium_rate");
+  if(!turnover||!rateInput)return;
+  ["input","change","blur"].forEach(evt=>{
+    turnover.addEventListener(evt,calc);
+    rateInput.addEventListener(evt,calc);
+  });
+}
+
+const COLUMN_ORDER_KEY="gpmProspectColumnOrderV1";
+
+function prospectTable(){
+  const body=$("body");
+  return body ? body.closest("table") : null;
+}
+
+function headerLabel(th){
+  return (th.dataset.colKey || th.textContent || "").trim();
+}
+
+function ensureColumnKeys(){
+  const table=prospectTable();
+  if(!table)return;
+  [...table.tHead.rows[0].cells].forEach((th,i)=>{
+    if(!th.dataset.colKey){
+      th.dataset.colKey = th.textContent.trim() || ("column_"+i);
+    }
+  });
+}
+
+function moveColumn(table,from,to){
+  if(from===to)return;
+  const rows=[...table.rows];
+  rows.forEach(row=>{
+    const cells=[...row.cells];
+    const cell=cells[from];
+    if(!cell)return;
+    if(to>=cells.length-1) row.appendChild(cell);
+    else if(from<to) row.insertBefore(cell,cells[to].nextSibling);
+    else row.insertBefore(cell,cells[to]);
+  });
+}
+
+function currentColumnOrder(){
+  const table=prospectTable();
+  if(!table)return [];
+  ensureColumnKeys();
+  return [...table.tHead.rows[0].cells].map(headerLabel);
+}
+
+function saveColumnOrder(){
+  localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(currentColumnOrder()));
+}
+
+function applySavedColumnOrder(){
+  const table=prospectTable();
+  if(!table)return;
+  ensureColumnKeys();
+  let saved=[];
+  try{ saved=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") }catch(e){}
+  if(!saved.length)return;
+
+  saved.forEach((key,targetIndex)=>{
+    const headers=[...table.tHead.rows[0].cells];
+    const from=headers.findIndex(th=>headerLabel(th)===key);
+    if(from>=0 && from!==targetIndex) moveColumn(table,from,targetIndex);
+  });
+}
+
+function initDraggableColumns(){
+  const table=prospectTable();
+  if(!table)return;
+  ensureColumnKeys();
+  applySavedColumnOrder();
+
+  let draggedKey=null;
+
+  [...table.tHead.rows[0].cells].forEach(th=>{
+    // Keep Actions fixed on the far left so Edit/Delete is always easy to reach.
+    if(headerLabel(th)==="Actions"){
+      th.draggable=false;
+      th.title="Actions stays fixed on the left";
+      return;
+    }
+
+    th.draggable=true;
+    th.classList.add("draggable-col");
+    th.title="Drag to move this column";
+
+    th.addEventListener("dragstart",e=>{
+      draggedKey=headerLabel(th);
+      th.classList.add("dragging-col");
+      e.dataTransfer.effectAllowed="move";
+      e.dataTransfer.setData("text/plain",draggedKey);
+    });
+
+    th.addEventListener("dragend",()=>{
+      th.classList.remove("dragging-col");
+      draggedKey=null;
+      document.querySelectorAll(".drag-over-col").forEach(x=>x.classList.remove("drag-over-col"));
+    });
+
+    th.addEventListener("dragover",e=>{
+      e.preventDefault();
+      if(!draggedKey || headerLabel(th)==="Actions")return;
+      e.dataTransfer.dropEffect="move";
+      th.classList.add("drag-over-col");
+    });
+
+    th.addEventListener("dragleave",()=>th.classList.remove("drag-over-col"));
+
+    th.addEventListener("drop",e=>{
+      e.preventDefault();
+      th.classList.remove("drag-over-col");
+      if(!draggedKey)return;
+      const headers=[...table.tHead.rows[0].cells];
+      const from=headers.findIndex(x=>headerLabel(x)===draggedKey);
+      const to=headers.findIndex(x=>x===th);
+      if(from<0||to<0||from===to)return;
+      moveColumn(table,from,to);
+      saveColumnOrder();
+    });
+  });
+}
+
+function resetColumnOrder(){
+  localStorage.removeItem(COLUMN_ORDER_KEY);
+  location.reload();
+}
+
+initAutomaticPremiumCalculation();
+initDraggableColumns();
