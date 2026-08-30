@@ -18,6 +18,8 @@ const days=d=>d?Math.ceil((new Date(d+"T00:00:00")-new Date(new Date().toDateStr
 const esc=s=>String(s??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 const uniq=k=>[...new Set(R.map(x=>x[k]).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b)));
 const statusLower=r=>String(r.status||"").toLowerCase();
+const ACTIVE_PIPELINE_STATUSES=new Set(["open","lead","precheck","quoting","offer submitted","negotiation","ongoing"]);
+const isPipelineOpen=r=>ACTIVE_PIPELINE_STATUSES.has(statusLower(r));
 
 async function init(){
   try{
@@ -54,7 +56,7 @@ function opts(){
 function filtered(){
   let a=[...R];
   [["df","customer_country"],["gf","global_country"],["mf","sales_manager"],["bf","broker"],["sf","status"]].forEach(([id,k])=>{if($(id)?.value)a=a.filter(r=>String(r[k]||"")===$(id).value)});
-  let f=$("deadlinef")?.value;if(f==="overdue")a=a.filter(r=>statusLower(r)==="open"&&days(r.offer_deadline)<0);else if(f==="none")a=a.filter(r=>!r.offer_deadline);else if(f)a=a.filter(r=>{let d=days(r.offer_deadline);return d!==null&&d>=0&&d<=Number(f)});
+  let f=$("deadlinef")?.value;if(f==="overdue")a=a.filter(r=>isPipelineOpen(r)&&days(r.offer_deadline)<0);else if(f==="none")a=a.filter(r=>!r.offer_deadline);else if(f)a=a.filter(r=>{let d=days(r.offer_deadline);return d!==null&&d>=0&&d<=Number(f)});
   return a;
 }
 function group(a,k){let o={};a.forEach(r=>{let x=r[k]||"Not set";o[x]=(o[x]||0)+1});return o}
@@ -63,7 +65,7 @@ function render(){
   let a=filtered();
   $("total").textContent=a.length;$("open").textContent=a.filter(x=>statusLower(x)==="open").length;$("won").textContent=a.filter(x=>statusLower(x)==="won").length;$("lost").textContent=a.filter(x=>statusLower(x)==="lost").length;$("overdue").textContent=a.filter(x=>statusLower(x)==="open"&&days(x.offer_deadline)<0).length;$("due7").textContent=a.filter(x=>{let d=days(x.offer_deadline);return statusLower(x)==="open"&&d!==null&&d>=0&&d<=7}).length;$("premium").textContent=moneyText(a.reduce((s,x)=>s+n(x.expected_premium),0),"EUR");$("turnover").textContent=moneyText(a.reduce((s,x)=>s+n(x.insurable_turnover),0),"EUR");
   renderBars("countries",group(a,"customer_country"),"customer_country");renderBars("managers",group(a,"sales_manager"),"sales_manager");renderBars("brokers",group(a,"broker"),"broker");renderBars("statuses",group(a,"status"),"status");
-  let dl=a.filter(r=>statusLower(r)==="open"&&days(r.offer_deadline)!==null&&days(r.offer_deadline)<=30).sort((x,y)=>days(x.offer_deadline)-days(y.offer_deadline)).slice(0,20);
+  let dl=a.filter(r=>isPipelineOpen(r)&&days(r.offer_deadline)!==null&&days(r.offer_deadline)<=30).sort((x,y)=>days(x.offer_deadline)-days(y.offer_deadline)).slice(0,20);
   $("deadlineBody").innerHTML=dl.map(r=>`<tr class="deadline-click" role="button" tabindex="0" data-id="${esc(r.id)}"><td data-col-key="Prospect name"><b>${esc(r.prospect_name)}</b></td><td data-col-key="Customer country">${esc(r.customer_country)}</td><td data-col-key="Sales Manager">${esc(r.sales_manager)}</td><td data-col-key="Offer deadline">${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)}</td><td data-col-key="Status">${esc(r.status)}</td><td data-col-key="Expected premium EUR">${moneyText(r.expected_premium,"EUR")}</td></tr>`).join("");
   $("deadlineBody").querySelectorAll(".deadline-click").forEach(row=>{const go=()=>openDashboardDrill("id",{id:row.dataset.id,label:"Selected prospect"});row.onclick=go;row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}});
 }
@@ -80,7 +82,7 @@ function table(){
     const fileCell=fileCount
       ? `<button class="file-icon-btn" title="${fileCount} file${fileCount===1?"":"s"}" onclick="openFiles('${r.id}')">📎 <span>${fileCount}</span></button>`
       : `<span class="no-files" title="No files">—</span>`;
-    const statusClass=(()=>{const s=statusLower(r);if(s==="won")return"prospect-won";if(s==="lost")return"prospect-lost";if(s==="open"||s==="ongoing")return"prospect-open";return"prospect-neutral"})();
+    const statusClass=(()=>{const s=statusLower(r);if(s==="won")return"prospect-won";if(s==="lost")return"prospect-lost";if(isPipelineOpen(r))return"prospect-open";return"prospect-neutral"})();
     return `<tr class="${statusClass}"><td data-col-key="Actions" class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td data-col-key="Files" class="files-cell">${fileCell}</td><td data-col-key="Prospect name"><b>${esc(r.prospect_name)}</b></td><td data-col-key="Policy ID">${esc(r.policy_id)}</td><td data-col-key="Customer ID">${esc(r.customer_id)}</td><td data-col-key="Customer country">${esc(r.customer_country)}</td><td data-col-key="Global country">${esc(r.global_country)}</td><td data-col-key="Sales Manager">${esc(r.sales_manager)}</td><td data-col-key="Broker">${esc(r.broker)}</td><td data-col-key="Broker contact">${esc(r.broker_contact)}</td><td data-col-key="Offer deadline">${esc(r.offer_deadline)}</td><td data-col-key="Policy start date">${esc(r.policy_start_date)}</td><td data-col-key="Days left" class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td data-col-key="Precheck">${esc(r.precheck)}</td><td data-col-key="Acceptance rate">${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td data-col-key="KAU">${esc(r.key_account_underwriter)}</td><td data-col-key="Opportunity type">${esc(r.opportunity_type)}</td><td data-col-key="Remarks" class="rem">${esc(r.prospect_remarks)}</td><td data-col-key="Status">${esc(r.status)}</td><td data-col-key="Currency">${esc(r.currency||"EUR")}</td><td data-col-key="Insurable turnover">${fmt(r.insurable_turnover_original ?? r.insurable_turnover)}</td><td data-col-key="Turnover EUR">${moneyText(r.insurable_turnover,"EUR")}</td><td data-col-key="Premium rate">${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td data-col-key="Expected premium">${moneyText(r.expected_premium_original ?? r.expected_premium,r.currency||"EUR")}</td><td data-col-key="Expected premium EUR">${moneyText(r.expected_premium,"EUR")}</td><td data-col-key="Premium principle">${esc(r.premium_principle)}</td></tr>`;
   }).join("");
   alignBodyToHeader();
@@ -89,11 +91,11 @@ function table(){
 function dashboardDrillSet(type,payload={}){
   let a=filtered(),label="Dashboard selection";
 
-  if(type==="open"){a=a.filter(r=>statusLower(r)==="open");label="Open";}
+  if(type==="open"){a=a.filter(r=>isPipelineOpen(r));label="Open";}
   else if(type==="won"){a=a.filter(r=>statusLower(r)==="won");label="Won";}
   else if(type==="lost"){a=a.filter(r=>statusLower(r)==="lost");label="Lost";}
-  else if(type==="overdue"){a=a.filter(r=>statusLower(r)==="open"&&days(r.offer_deadline)<0);label="Overdue";}
-  else if(type==="due7"){a=a.filter(r=>{let d=days(r.offer_deadline);return statusLower(r)==="open"&&d!==null&&d>=0&&d<=7});label="Due within 7 days";}
+  else if(type==="overdue"){a=a.filter(r=>isPipelineOpen(r)&&days(r.offer_deadline)<0);label="Overdue";}
+  else if(type==="due7"){a=a.filter(r=>{let d=days(r.offer_deadline);return isPipelineOpen(r)&&d!==null&&d>=0&&d<=7});label="Due within 7 days";}
   else if(type==="field"){
     a=a.filter(r=>String(r[payload.field]||"Not set")===String(payload.value));
     const names={customer_country:"Customer country",sales_manager:"Sales Manager",broker:"Broker",status:"Status"};
@@ -143,6 +145,36 @@ function initDashboardClicks(){
     card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}});
   });
 }
+
+
+const BOARD_STAGES=["Lead","Precheck","Quoting","Offer submitted","Negotiation","Won","Lost"];
+function normalizeBoardStage(status){
+ const s=String(status||"").trim().toLowerCase();
+ const map={"lead":"Lead","precheck":"Precheck","quoting":"Quoting","offer submitted":"Offer submitted","negotiation":"Negotiation","won":"Won","lost":"Lost"};
+ return map[s]||"Lead";
+}
+function populateBoardFilters(){
+ const fill=(id,vals,label)=>{const e=$(id);if(!e)return;const cur=e.value;e.innerHTML=`<option value="">${label}</option>`+[...new Set(vals.filter(Boolean))].sort().map(v=>`<option>${esc(v)}</option>`).join("");if([...e.options].some(o=>o.value===cur))e.value=cur};
+ fill("boardCountry",R.map(r=>r.customer_country),"All countries");fill("boardManager",R.map(r=>r.sales_manager),"All Sales Managers");fill("boardBroker",R.map(r=>r.broker),"All brokers");
+}
+function boardRows(){let a=[...R],c=$("boardCountry")?.value||"",m=$("boardManager")?.value||"",b=$("boardBroker")?.value||"";if(c)a=a.filter(r=>r.customer_country===c);if(m)a=a.filter(r=>r.sales_manager===m);if(b)a=a.filter(r=>r.broker===b);return a}
+function boardCard(r){
+ const d=days(r.offer_deadline),cl=d!==null&&d<0?" board-card-overdue":d!==null&&d<=7?" board-card-soon":"",files=(DOCS_BY_OPPORTUNITY[r.id]||[]).length;
+ return `<article class="board-card${cl}" draggable="true" data-id="${esc(r.id)}" tabindex="0"><div class="board-card-top"><b>${esc(r.prospect_name||"Unnamed prospect")}</b>${files?`<span>📎 ${files}</span>`:""}</div><div class="board-card-country">${esc(r.customer_country||"")}</div><div class="board-card-premium">${moneyText(r.expected_premium||0,"EUR")}</div><div class="board-card-meta">${[r.offer_deadline?`Deadline ${esc(r.offer_deadline)}`:"",r.policy_start_date?`Start ${esc(r.policy_start_date)}`:""].filter(Boolean).join(" · ")}</div><div class="board-card-meta">${[r.broker,r.sales_manager].filter(Boolean).map(esc).join(" · ")}</div></article>`;
+}
+function renderBoard(){
+ const root=$("pipelineBoard");if(!root)return;populateBoardFilters();const grouped=Object.fromEntries(BOARD_STAGES.map(s=>[s,[]]));
+ boardRows().forEach(r=>grouped[normalizeBoardStage(r.status)].push(r));
+ root.innerHTML=BOARD_STAGES.map(stage=>{const a=grouped[stage].sort((x,y)=>(x.offer_deadline||"9999").localeCompare(y.offer_deadline||"9999")),total=a.reduce((s,r)=>s+n(r.expected_premium),0),cl=stage==="Won"?" board-col-won":stage==="Lost"?" board-col-lost":"";
+ return `<section class="board-column${cl}" data-stage="${stage}"><header><div><b>${stage}</b><span>${a.length}</span></div><small>${moneyText(total,"EUR")}</small></header><div class="board-dropzone">${a.map(boardCard).join("")||'<div class="board-empty">Drop opportunity here</div>'}</div></section>`}).join("");
+ root.querySelectorAll(".board-card").forEach(c=>{c.onclick=()=>edit(c.dataset.id);c.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();edit(c.dataset.id)}};c.ondragstart=e=>{e.dataTransfer.setData("text/plain",c.dataset.id);c.classList.add("board-dragging")};c.ondragend=()=>c.classList.remove("board-dragging")});
+ root.querySelectorAll(".board-column").forEach(col=>{col.ondragover=e=>{e.preventDefault();col.classList.add("board-dragover")};col.ondragleave=()=>col.classList.remove("board-dragover");col.ondrop=async e=>{e.preventDefault();col.classList.remove("board-dragover");await moveOpportunityStage(e.dataTransfer.getData("text/plain"),col.dataset.stage)}});
+}
+async function moveOpportunityStage(id,stage){
+ const r=R.find(x=>String(x.id)===String(id));if(!r)return;const old=r.status,oldClosed=r.closed_date;r.status=stage;r.closed_date=(stage==="Won"||stage==="Lost")?new Date().toISOString().slice(0,10):null;renderBoard();render();
+ if(on){const x=await S.from("prospects").update({status:r.status,closed_date:r.closed_date,updated_at:new Date().toISOString()}).eq("id",id);if(x.error){r.status=old;r.closed_date=oldClosed;renderBoard();render();alert("Could not update status: "+x.error.message)}}else localStorage.setItem("prospects",JSON.stringify(R));
+}
+window.renderBoard=renderBoard;
 
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
 function show(x){$("dash").hidden=x!=="dash";$("pros").hidden=x!=="pros"}
@@ -617,3 +649,5 @@ if(fxField){
 }
 
 initDashboardClicks();
+
+window.show=id=>{$("dash").hidden=id!=="dash";$("pros").hidden=id!=="pros";$("board").hidden=id!=="board";if(id==="dash")render();else if(id==="board")renderBoard();else table()};

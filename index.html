@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Global Pipeline Manager</title><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body>
-<aside><h2>Global Pipeline</h2><button onclick="show('dash')">Dashboard</button><button onclick="show('pros')">Prospects</button><small id="mode">Connecting...</small></aside>
+<aside><h2>Global Pipeline</h2><button onclick="show('dash')">Dashboard</button><button onclick="show('pros')">Prospects</button><button onclick="show('board')">Pipeline Board</button><small id="mode">Connecting...</small></aside>
 <main><header><div><h1>Global Pipeline Manager</h1><p>Commercial pipeline overview</p></div><button class="red" onclick="openForm()">+ New prospect</button></header>
 <section id="dash">
 <div class="filters dashboard-filters">
@@ -38,6 +38,10 @@
   <div class="wrap deadline-wrap"><table><thead><tr><th>Prospect</th><th>Country</th><th>Sales Manager</th><th>Deadline</th><th>Days left</th><th>Status</th><th>Expected premium</th></tr></thead><tbody id="deadlineBody"></tbody></table></div>
 </article>
 </section>
+<section id="board" hidden>
+<div class="board-toolbar"><div><h2>Pipeline Board</h2><p>Move opportunities through the commercial pipeline. Click a card to edit it.</p></div>
+<div class="board-actions"><select id="boardCountry" onchange="renderBoard()"><option value="">All countries</option></select><select id="boardManager" onchange="renderBoard()"><option value="">All Sales Managers</option></select><select id="boardBroker" onchange="renderBoard()"><option value="">All brokers</option></select></div></div>
+<div id="pipelineBoard" class="pipeline-board"></div></section>
 <section id="pros" hidden><article>
 <div id="drillBanner" class="drill-banner" hidden>
   <div><b id="drillTitle">Dashboard selection</b><span id="drillCount"></span></div>
@@ -59,7 +63,7 @@
 <dialog id="dlg"><form id="form"><h2>Prospect</h2><input type="hidden" id="id"><div class="grid">
 <label>Prospect name<input id="prospect_name" list="prospectsList" required></label><label>Policy ID<input id="policy_id" list="policiesList"></label><label>Customer ID<input id="customer_id" list="customerIdsList"></label><label>Customer country<input id="customer_country" list="countriesList"></label>
 <label>Global country<input id="global_country" list="globalsList"></label><label>Sales Manager<input id="sales_manager" list="managersList"></label><label>Broker<input id="broker" list="brokersList"></label><label>Broker contact<input id="broker_contact" list="contactsList"></label>
-<label>Offer deadline<input id="offer_deadline" type="date"></label><label>Policy start date<input id="policy_start_date" type="date"></label><label>Precheck<select id="precheck"><option></option><option>YES</option><option>NO</option></select></label><label>Acceptance rate<input id="acceptance_rate" placeholder="87.5%"></label><label>Key Account Underwriter<input id="key_account_underwriter" list="kauList"></label><label>Opportunity type<select id="opportunity_type"><option>New Business</option><option>Retender</option><option>Renewal</option><option>Expansion</option><option>Other</option></select></label><label>Status<select id="status"><option>Open</option><option>On hold</option><option>Won</option><option>Lost</option><option>Closed</option></select></label>
+<label>Offer deadline<input id="offer_deadline" type="date"></label><label>Policy start date<input id="policy_start_date" type="date"></label><label>Precheck<select id="precheck"><option></option><option>YES</option><option>NO</option></select></label><label>Acceptance rate<input id="acceptance_rate" placeholder="87.5%"></label><label>Key Account Underwriter<input id="key_account_underwriter" list="kauList"></label><label>Opportunity type<select id="opportunity_type"><option>New Business</option><option>Retender</option><option>Renewal</option><option>Expansion</option><option>Other</option></select></label><label>Status<select id="status"><option>Lead</option><option>Precheck</option><option>Quoting</option><option>Offer submitted</option><option>Negotiation</option><option>Open</option><option>On hold</option><option>Won</option><option>Lost</option><option>Closed</option></select></label>
 <label>Currency
 <select id="currency" onchange="currencyChanged()">
 <option>EUR</option><option>CHF</option><option>PLN</option><option>USD</option><option>GBP</option><option>CZK</option><option>HUF</option><option>RON</option><option>TRY</option><option>RSD</option><option>SEK</option><option>NOK</option><option>DKK</option><option>AED</option><option>SAR</option><option>ZAR</option><option>CNY</option><option>JPY</option><option>BRL</option><option>MXN</option><option>INR</option><option>BGN</option>
