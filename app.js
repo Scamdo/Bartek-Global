@@ -165,15 +165,97 @@ function boardCard(r){
 function renderBoard(){
  const root=$("pipelineBoard");if(!root)return;populateBoardFilters();const grouped=Object.fromEntries(BOARD_STAGES.map(s=>[s,[]]));
  boardRows().forEach(r=>grouped[normalizeBoardStage(r.status)].push(r));
- root.innerHTML=BOARD_STAGES.map(stage=>{const a=grouped[stage].sort((x,y)=>(x.offer_deadline||"9999").localeCompare(y.offer_deadline||"9999")),total=a.reduce((s,r)=>s+n(r.expected_premium),0),cl=stage==="Won"?" board-col-won":stage==="Lost"?" board-col-lost":"";
+ const mode=$("boardSort")?.value||localStorage.getItem("gpmBoardSort")||"premium";
+ if($("boardSort"))$("boardSort").value=mode;
+ root.innerHTML=BOARD_STAGES.map(stage=>{const a=grouped[stage].sort((x,y)=>{
+   if(mode==="manual"){
+     const xo=Number.isFinite(Number(x.board_order))?Number(x.board_order):999999;
+     const yo=Number.isFinite(Number(y.board_order))?Number(y.board_order):999999;
+     return xo-yo || n(y.expected_premium)-n(x.expected_premium);
+   }
+   if(mode==="deadline") return (x.offer_deadline||"9999").localeCompare(y.offer_deadline||"9999") || n(y.expected_premium)-n(x.expected_premium);
+   return n(y.expected_premium)-n(x.expected_premium) || (x.offer_deadline||"9999").localeCompare(y.offer_deadline||"9999");
+ }),total=a.reduce((s,r)=>s+n(r.expected_premium),0),cl=stage==="Won"?" board-col-won":stage==="Lost"?" board-col-lost":"";
  return `<section class="board-column${cl}" data-stage="${stage}"><header><div><b>${stage}</b><span>${a.length}</span></div><small>${moneyText(total,"EUR")}</small></header><div class="board-dropzone">${a.map(boardCard).join("")||'<div class="board-empty">Drop opportunity here</div>'}</div></section>`}).join("");
- root.querySelectorAll(".board-card").forEach(c=>{c.onclick=()=>edit(c.dataset.id);c.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();edit(c.dataset.id)}};c.ondragstart=e=>{e.dataTransfer.setData("text/plain",c.dataset.id);c.classList.add("board-dragging")};c.ondragend=()=>c.classList.remove("board-dragging")});
- root.querySelectorAll(".board-column").forEach(col=>{col.ondragover=e=>{e.preventDefault();col.classList.add("board-dragover")};col.ondragleave=()=>col.classList.remove("board-dragover");col.ondrop=async e=>{e.preventDefault();col.classList.remove("board-dragover");await moveOpportunityStage(e.dataTransfer.getData("text/plain"),col.dataset.stage)}});
+ root.querySelectorAll(".board-card").forEach(c=>{
+   c.onclick=()=>edit(c.dataset.id);
+   c.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();edit(c.dataset.id)}};
+   c.ondragstart=e=>{e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",c.dataset.id);c.classList.add("board-dragging")};
+   c.ondragend=()=>{c.classList.remove("board-dragging");root.querySelectorAll(".board-drop-before").forEach(x=>x.classList.remove("board-drop-before"))};
+   c.ondragover=e=>{e.preventDefault();e.stopPropagation();c.classList.add("board-drop-before")};
+   c.ondragleave=()=>c.classList.remove("board-drop-before");
+   c.ondrop=async e=>{
+     e.preventDefault();e.stopPropagation();c.classList.remove("board-drop-before");
+     const draggedId=e.dataTransfer.getData("text/plain");
+     if(!draggedId||draggedId===c.dataset.id)return;
+     await moveOpportunityToPosition(draggedId,c.closest(".board-column").dataset.stage,c.dataset.id);
+   };
+ });
+ root.querySelectorAll(".board-column").forEach(col=>{
+   col.ondragover=e=>{e.preventDefault();col.classList.add("board-dragover")};
+   col.ondragleave=e=>{if(!col.contains(e.relatedTarget))col.classList.remove("board-dragover")};
+   col.ondrop=async e=>{
+     if(e.target.closest(".board-card"))return;
+     e.preventDefault();col.classList.remove("board-dragover");
+     const id=e.dataTransfer.getData("text/plain");
+     if(id)await moveOpportunityToPosition(id,col.dataset.stage,null);
+   };
+ });
 }
-async function moveOpportunityStage(id,stage){
- const r=R.find(x=>String(x.id)===String(id));if(!r)return;const old=r.status,oldClosed=r.closed_date;r.status=stage;r.closed_date=(stage==="Won"||stage==="Lost")?new Date().toISOString().slice(0,10):null;renderBoard();render();
- if(on){const x=await S.from("prospects").update({status:r.status,closed_date:r.closed_date,updated_at:new Date().toISOString()}).eq("id",id);if(x.error){r.status=old;r.closed_date=oldClosed;renderBoard();render();alert("Could not update status: "+x.error.message)}}else localStorage.setItem("prospects",JSON.stringify(R));
+async function persistBoardOrder(stage,orderedIds){
+  orderedIds.forEach((id,i)=>{
+    const r=R.find(x=>String(x.id)===String(id));
+    if(r)r.board_order=i+1;
+  });
+  if(on){
+    const results=await Promise.all(orderedIds.map((id,i)=>S.from("prospects").update({board_order:i+1,updated_at:new Date().toISOString()}).eq("id",id)));
+    const bad=results.find(x=>x.error);
+    if(bad?.error)throw bad.error;
+  }else localStorage.setItem("prospects",JSON.stringify(R));
 }
+
+async function moveOpportunityToPosition(id,stage,beforeId=null){
+  const r=R.find(x=>String(x.id)===String(id));if(!r)return;
+  const oldStatus=r.status,oldClosed=r.closed_date;
+  const oldOrders=new Map(R.map(x=>[String(x.id),x.board_order]));
+
+  r.status=stage;
+  r.closed_date=(stage==="Won"||stage==="Lost")?new Date().toISOString().slice(0,10):null;
+
+  // Switch automatically to Manual whenever the user explicitly reorders cards.
+  localStorage.setItem("gpmBoardSort","manual");
+  if($("boardSort"))$("boardSort").value="manual";
+
+  const stageRows=R.filter(x=>normalizeBoardStage(x.status)===stage && String(x.id)!==String(id))
+    .sort((a,b)=>{
+      const ao=Number.isFinite(Number(a.board_order))?Number(a.board_order):999999;
+      const bo=Number.isFinite(Number(b.board_order))?Number(b.board_order):999999;
+      return ao-bo || n(b.expected_premium)-n(a.expected_premium);
+    });
+
+  let pos=beforeId?stageRows.findIndex(x=>String(x.id)===String(beforeId)):-1;
+  if(pos<0)pos=stageRows.length;
+  stageRows.splice(pos,0,r);
+
+  try{
+    if(on){
+      const x=await S.from("prospects").update({status:r.status,closed_date:r.closed_date,updated_at:new Date().toISOString()}).eq("id",id);
+      if(x.error)throw x.error;
+    }
+    await persistBoardOrder(stage,stageRows.map(x=>String(x.id)));
+  }catch(err){
+    r.status=oldStatus;r.closed_date=oldClosed;
+    R.forEach(x=>x.board_order=oldOrders.get(String(x.id)));
+    alert("Could not update board order: "+(err.message||err));
+  }
+  renderBoard();render();
+}
+
+window.boardSortChanged=()=>{
+  const mode=$("boardSort")?.value||"premium";
+  localStorage.setItem("gpmBoardSort",mode);
+  renderBoard();
+};
 window.renderBoard=renderBoard;
 
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}

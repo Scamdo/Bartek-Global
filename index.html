@@ -40,7 +40,16 @@
 </section>
 <section id="board" hidden>
 <div class="board-toolbar"><div><h2>Pipeline Board</h2><p>Move opportunities through the commercial pipeline. Click a card to edit it.</p></div>
-<div class="board-actions"><select id="boardCountry" onchange="renderBoard()"><option value="">All countries</option></select><select id="boardManager" onchange="renderBoard()"><option value="">All Sales Managers</option></select><select id="boardBroker" onchange="renderBoard()"><option value="">All brokers</option></select></div></div>
+<div class="board-actions">
+<select id="boardSort" onchange="boardSortChanged()">
+<option value="premium">Order: Premium high → low</option>
+<option value="deadline">Order: Deadline soonest</option>
+<option value="manual">Order: Manual</option>
+</select>
+<select id="boardCountry" onchange="renderBoard()"><option value="">All countries</option></select>
+<select id="boardManager" onchange="renderBoard()"><option value="">All Sales Managers</option></select>
+<select id="boardBroker" onchange="renderBoard()"><option value="">All brokers</option></select>
+</div></div>
 <div id="pipelineBoard" class="pipeline-board"></div></section>
 <section id="pros" hidden><article>
 <div id="drillBanner" class="drill-banner" hidden>

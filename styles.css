@@ -203,3 +203,8 @@ thead .actions-col{
 .board-dropzone{min-height:350px}.board-card{background:#fff;border:1px solid #dfe2e5;border-radius:9px;padding:11px;margin-bottom:9px;cursor:grab}.board-card:hover{border-color:#b7bcc2;box-shadow:0 2px 7px rgba(0,0,0,.07)}.board-card:active{cursor:grabbing}
 .board-card-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.board-card-top b{font-size:13px}.board-card-country{font-size:12px;color:#69727c;margin-top:3px}.board-card-premium{font-size:15px;font-weight:800;margin-top:10px}.board-card-meta{font-size:11px;color:#69727c;margin-top:5px;line-height:1.35}
 .board-card-overdue{border-left:4px solid #c74444}.board-card-soon{border-left:4px solid #e0a72f}.board-dragging{opacity:.45}.board-dragover{background:#fff4d9;border-color:#d49a1e}.board-empty{border:1px dashed #cbd0d5;border-radius:8px;padding:18px 8px;text-align:center;color:#89919a;font-size:12px}
+
+/* v1.6.1 manual card ordering */
+.board-drop-before{border-top:3px solid #e11b22;margin-top:10px}
+#boardSort{min-width:210px}
+.board-card[draggable="true"]{position:relative}
