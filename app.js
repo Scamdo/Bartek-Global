@@ -1,6 +1,6 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","policy_start_date","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
-let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null;
+let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null;
 
 const n=v=>Number(String(v??"").trim().replace(/\s/g,"").replace(",", "."))||0;
 const fmt=v=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n(v)).replace(/,/g," ");
@@ -22,26 +22,109 @@ const ACTIVE_PIPELINE_STATUSES=new Set(["open","lead","precheck","quoting","offe
 const isPipelineOpen=r=>ACTIVE_PIPELINE_STATUSES.has(statusLower(r));
 
 async function init(){
-  try{
-    S=supabase.createClient(APP_CONFIG.SUPABASE_URL,APP_CONFIG.SUPABASE_ANON_KEY);
-    let x=await S.from("prospects").select("*").order("created_at",{ascending:false});
-    if(x.error)throw x.error;
-    R=x.data||[];
-    let c=await S.from("companies").select("*");
-    COMPANIES=c.error?[]:(c.data||[]);
-    let docs=await S.from("opportunity_documents").select("id,opportunity_id,document_type,description,file_path,file_name,created_at").order("created_at",{ascending:false});
-    DOCS_BY_OPPORTUNITY={};
-    if(!docs.error){
-      (docs.data||[]).forEach(d=>{
-        (DOCS_BY_OPPORTUNITY[d.opportunity_id]??=[]).push(d);
-      });
+  S=supabase.createClient(APP_CONFIG.SUPABASE_URL,APP_CONFIG.SUPABASE_ANON_KEY,{
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+  });
+
+  if($("loginForm"))$("loginForm").addEventListener("submit",sendMagicLink);
+
+  S.auth.onAuthStateChange(async(event,session)=>{
+    if(event==="SIGNED_OUT"){
+      CURRENT_USER=null;CURRENT_ACCESS=null;on=false;
+      showAuthGate();
+      return;
     }
-    on=true;$("mode").textContent="Shared online database";
-  }catch(e){
-    console.warn(e);R=JSON.parse(localStorage.gpm||"[]");$("mode").textContent="Local demo mode";
-  }
-  opts();render();table();
+    if(session?.user && (!CURRENT_USER || CURRENT_USER.id!==session.user.id)){
+      await enterSecureApp(session.user);
+    }
+  });
+
+  const {data:{session},error}=await S.auth.getSession();
+  if(error)console.warn(error);
+  if(session?.user)await enterSecureApp(session.user);
+  else showAuthGate();
 }
+
+function showAuthGate(message=""){
+  if($("authGate"))$("authGate").hidden=false;
+  if($("appShell"))$("appShell").hidden=true;
+  if($("authMessage"))$("authMessage").textContent=message;
+}
+function showSecureApp(){
+  if($("authGate"))$("authGate").hidden=true;
+  if($("appShell"))$("appShell").hidden=false;
+}
+async function sendMagicLink(e){
+  e.preventDefault();
+  const email=$("loginEmail").value.trim().toLowerCase();
+  const msg=$("authMessage"),btn=$("loginBtn");
+  msg.textContent="";btn.disabled=true;btn.textContent="Sending...";
+  try{
+    const redirectTo=location.origin+location.pathname;
+    const {error}=await S.auth.signInWithOtp({
+      email,
+      options:{emailRedirectTo:redirectTo,shouldCreateUser:false}
+    });
+    if(error)throw error;
+    msg.textContent="Check your email and open the secure sign-in link.";
+  }catch(err){
+    console.warn(err);
+    msg.textContent="Sign-in could not be started. Your account may not be authorized.";
+  }finally{
+    btn.disabled=false;btn.textContent="Send sign-in link";
+  }
+}
+async function enterSecureApp(user){
+  CURRENT_USER=user;
+  const email=String(user.email||"").toLowerCase();
+
+  const {data:access,error:accessError}=await S.from("allowed_users")
+    .select("email,display_name,role,active")
+    .eq("email",email)
+    .eq("active",true)
+    .maybeSingle();
+
+  if(accessError||!access){
+    await S.auth.signOut();
+    showAuthGate("Access denied. Ask the administrator to authorize your email.");
+    return;
+  }
+
+  CURRENT_ACCESS=access;
+  if($("currentUserEmail"))$("currentUserEmail").textContent=access.display_name||user.email||"";
+  if($("currentUserRole"))$("currentUserRole").textContent=String(access.role||"user").toUpperCase();
+  showSecureApp();
+
+  try{
+    const x=await S.from("prospects").select("*").order("created_at",{ascending:false});
+    if(x.error)throw x.error;R=x.data||[];
+
+    const c=await S.from("companies").select("*");
+    if(c.error)throw c.error;COMPANIES=c.data||[];
+
+    const docs=await S.from("opportunity_documents")
+      .select("id,opportunity_id,document_type,description,file_path,file_name,created_at")
+      .order("created_at",{ascending:false});
+    if(docs.error)throw docs.error;
+
+    DOCS_BY_OPPORTUNITY={};
+    (docs.data||[]).forEach(d=>(DOCS_BY_OPPORTUNITY[d.opportunity_id]??=[]).push(d));
+
+    on=true;
+    if($("mode"))$("mode").textContent="Secure online database";
+    opts();render();table();if(typeof updateSidebar==="function")updateSidebar();
+  }catch(err){
+    console.error(err);
+    on=false;
+    showAuthGate("Secure database access failed. Please contact the administrator.");
+  }
+}
+window.signOutUser=async()=>{
+  if(S)await S.auth.signOut();
+  R=[];COMPANIES=[];DOCS_BY_OPPORTUNITY={};on=false;
+};
+function isAdmin(){return String(CURRENT_ACCESS?.role||"").toLowerCase()==="admin"}
+
 function setSelect(id,a,label){let el=$(id);if(!el)return;let old=el.value;el.innerHTML=`<option value="">${label}</option>`+a.map(x=>`<option>${esc(x)}</option>`).join("");if([...el.options].some(o=>o.value===old))el.value=old}
 function setList(id,a){let el=$(id);if(el)el.innerHTML=a.map(x=>`<option value="${esc(x)}">`).join("")}
 function opts(){
@@ -83,7 +166,7 @@ function table(){
       ? `<button class="file-icon-btn" title="${fileCount} file${fileCount===1?"":"s"}" onclick="openFiles('${r.id}')">📎 <span>${fileCount}</span></button>`
       : `<span class="no-files" title="No files">—</span>`;
     const statusClass=(()=>{const s=statusLower(r);if(s==="won")return"prospect-won";if(s==="lost")return"prospect-lost";if(isPipelineOpen(r))return"prospect-open";return"prospect-neutral"})();
-    return `<tr class="${statusClass}"><td data-col-key="Actions" class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> <button onclick="del('${r.id}')">Delete</button></td><td data-col-key="Files" class="files-cell">${fileCell}</td><td data-col-key="Prospect name"><b>${esc(r.prospect_name)}</b></td><td data-col-key="Policy ID">${esc(r.policy_id)}</td><td data-col-key="Customer ID">${esc(r.customer_id)}</td><td data-col-key="Customer country">${esc(r.customer_country)}</td><td data-col-key="Global country">${esc(r.global_country)}</td><td data-col-key="Sales Manager">${esc(r.sales_manager)}</td><td data-col-key="Broker">${esc(r.broker)}</td><td data-col-key="Broker contact">${esc(r.broker_contact)}</td><td data-col-key="Offer deadline">${esc(r.offer_deadline)}</td><td data-col-key="Policy start date">${esc(r.policy_start_date)}</td><td data-col-key="Days left" class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td data-col-key="Precheck">${esc(r.precheck)}</td><td data-col-key="Acceptance rate">${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td data-col-key="KAU">${esc(r.key_account_underwriter)}</td><td data-col-key="Opportunity type">${esc(r.opportunity_type)}</td><td data-col-key="Remarks" class="rem">${esc(r.prospect_remarks)}</td><td data-col-key="Status">${esc(r.status)}</td><td data-col-key="Currency">${esc(r.currency||"EUR")}</td><td data-col-key="Insurable turnover">${fmt(r.insurable_turnover_original ?? r.insurable_turnover)}</td><td data-col-key="Turnover EUR">${moneyText(r.insurable_turnover,"EUR")}</td><td data-col-key="Premium rate">${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td data-col-key="Expected premium">${moneyText(r.expected_premium_original ?? r.expected_premium,r.currency||"EUR")}</td><td data-col-key="Expected premium EUR">${moneyText(r.expected_premium,"EUR")}</td><td data-col-key="Premium principle">${esc(r.premium_principle)}</td></tr>`;
+    return `<tr class="${statusClass}"><td data-col-key="Actions" class="actions-cell"><button onclick="edit('${r.id}')">Edit</button> ${isAdmin()?`<button onclick="del('${r.id}')">Delete</button>`:""}</td><td data-col-key="Files" class="files-cell">${fileCell}</td><td data-col-key="Prospect name"><b>${esc(r.prospect_name)}</b></td><td data-col-key="Policy ID">${esc(r.policy_id)}</td><td data-col-key="Customer ID">${esc(r.customer_id)}</td><td data-col-key="Customer country">${esc(r.customer_country)}</td><td data-col-key="Global country">${esc(r.global_country)}</td><td data-col-key="Sales Manager">${esc(r.sales_manager)}</td><td data-col-key="Broker">${esc(r.broker)}</td><td data-col-key="Broker contact">${esc(r.broker_contact)}</td><td data-col-key="Offer deadline">${esc(r.offer_deadline)}</td><td data-col-key="Policy start date">${esc(r.policy_start_date)}</td><td data-col-key="Days left" class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)??""}</td><td data-col-key="Precheck">${esc(r.precheck)}</td><td data-col-key="Acceptance rate">${r.acceptance_rate!==null&&r.acceptance_rate!==undefined&&r.acceptance_rate!==""?pct(r.acceptance_rate).toFixed(1)+"%":""}</td><td data-col-key="KAU">${esc(r.key_account_underwriter)}</td><td data-col-key="Opportunity type">${esc(r.opportunity_type)}</td><td data-col-key="Remarks" class="rem">${esc(r.prospect_remarks)}</td><td data-col-key="Status">${esc(r.status)}</td><td data-col-key="Currency">${esc(r.currency||"EUR")}</td><td data-col-key="Insurable turnover">${fmt(r.insurable_turnover_original ?? r.insurable_turnover)}</td><td data-col-key="Turnover EUR">${moneyText(r.insurable_turnover,"EUR")}</td><td data-col-key="Premium rate">${r.premium_rate?n(r.premium_rate).toFixed(3)+"%":""}</td><td data-col-key="Expected premium">${moneyText(r.expected_premium_original ?? r.expected_premium,r.currency||"EUR")}</td><td data-col-key="Expected premium EUR">${moneyText(r.expected_premium,"EUR")}</td><td data-col-key="Premium principle">${esc(r.premium_principle)}</td></tr>`;
   }).join("");
   alignBodyToHeader();
 }
@@ -339,7 +422,7 @@ window.edit=async id=>{
   $("expected_premium").value=fmt(r.expected_premium ?? 0);
   $("id").value=id;$("docsLocked").hidden=true;$("docsArea").hidden=false;$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview();await loadDocuments(id)
 };
-window.del=async id=>{if(!confirm("Delete prospect?"))return;if(on){let x=await S.from("prospects").delete().eq("id",id);if(x.error)return alert(x.error.message)}R=R.filter(x=>String(x.id)!==String(id));if(!on)localStorage.gpm=JSON.stringify(R);opts();render();table()}
+window.del=async id=>{if(!isAdmin())return alert("Only an administrator can delete prospects.");if(!confirm("Delete prospect?"))return;if(on){let x=await S.from("prospects").delete().eq("id",id);if(x.error)return alert(x.error.message)}R=R.filter(x=>String(x.id)!==String(id));if(!on)localStorage.gpm=JSON.stringify(R);opts();render();table()}
 
 $("form").onsubmit=async e=>{
   e.preventDefault();let r={};F.forEach(k=>r[k]=$(k).value);
@@ -387,12 +470,18 @@ async function loadDocuments(opportunityId){
   if(x.error){$("documentsList").innerHTML=`<p>${esc(x.error.message)}</p>`;return}
   DOCS_BY_OPPORTUNITY[opportunityId]=x.data||[];
   table();
-  $("documentsList").innerHTML=x.data.length?x.data.map(d=>{
-    let {data}=S.storage.from("offers").getPublicUrl(d.file_path);
-    return `<div class="document-row"><b>${esc(d.document_type)}</b><div><a href="${data.publicUrl}" target="_blank" rel="noopener">${esc(d.file_name)}</a><br><span>${esc(d.description||"")}</span></div><span>${new Date(d.created_at).toLocaleDateString("en-GB")}</span><button type="button" onclick="deleteDocument('${d.id}','${esc(d.file_path)}')">Delete</button></div>`
+
+  const enriched=await Promise.all((x.data||[]).map(async d=>{
+    const signed=await S.storage.from("offers").createSignedUrl(d.file_path,600);
+    return {...d,signed_url:signed.data?.signedUrl||""};
+  }));
+
+  $("documentsList").innerHTML=enriched.length?enriched.map(d=>{
+    return `<div class="document-row"><b>${esc(d.document_type)}</b><div>${d.signed_url?`<a href="${d.signed_url}" target="_blank" rel="noopener">${esc(d.file_name)}</a>`:`<span>${esc(d.file_name)}</span>`}<br><span>${esc(d.description||"")}</span></div><span>${new Date(d.created_at).toLocaleDateString("en-GB")}</span>${isAdmin()?`<button type="button" onclick="deleteDocument('${d.id}','${esc(d.file_path)}')">Delete</button>`:"<span></span>"}</div>`
   }).join(""):"<p>No documents attached yet.</p>"
 }
 window.deleteDocument=async(id,path)=>{
+  if(!isAdmin())return alert("Only an administrator can delete documents.");
   if(!confirm("Delete this document?"))return;
   let a=await S.storage.from("offers").remove([path]);if(a.error)return alert(a.error.message);
   let b=await S.from("opportunity_documents").delete().eq("id",id);if(b.error)return alert(b.error.message);
@@ -689,17 +778,17 @@ window.openFiles=async opportunityId=>{
     }
   }
 
-  $("quickFilesList").innerHTML=docs.length ? docs.map(d=>{
-    let url="#";
-    if(on){
-      const {data}=S.storage.from("offers").getPublicUrl(d.file_path);
-      url=data.publicUrl;
-    }
+  const enriched=await Promise.all(docs.map(async d=>{
+    const signed=await S.storage.from("offers").createSignedUrl(d.file_path,600);
+    return {...d,signed_url:signed.data?.signedUrl||""};
+  }));
+
+  $("quickFilesList").innerHTML=enriched.length ? enriched.map(d=>{
     const date=d.created_at?new Date(d.created_at).toLocaleDateString("en-GB"):"";
     return `<div class="quick-file-row">
       <div class="quick-file-icon">PDF</div>
       <div class="quick-file-main">
-        <a href="${url}" target="_blank" rel="noopener">${esc(d.file_name)}</a>
+        ${d.signed_url?`<a href="${d.signed_url}" target="_blank" rel="noopener">${esc(d.file_name)}</a>`:`<b>${esc(d.file_name)}</b>`}
         <div>${esc(d.document_type||"Document")}${d.description?" - "+esc(d.description):""}</div>
       </div>
       <div class="quick-file-date">${date}</div>
@@ -708,7 +797,6 @@ window.openFiles=async opportunityId=>{
 
   filesDlg.showModal();
 };
-
 
 // v1.5.0 - ensure formatted whole-unit monetary display after form opens/edits
 document.addEventListener("focusout",e=>{
