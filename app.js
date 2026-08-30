@@ -1,6 +1,7 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","policy_start_date","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
-let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null,REMINDERS=[];
+const APP_VERSION="1.9.2";
+let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null,REMINDERS=[],PASSWORD_RECOVERY_MODE=false;
 
 const n=v=>Number(String(v??"").trim().replace(/\s/g,"").replace(",", "."))||0;
 const fmt=v=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n(v)).replace(/,/g," ");
@@ -27,13 +28,21 @@ async function init(){
   });
 
   if($("loginForm"))$("loginForm").addEventListener("submit",signInWithPassword);
+  if($("resetPasswordForm"))$("resetPasswordForm").addEventListener("submit",setRecoveredPassword);
+  if($("forgotPasswordBtn"))$("forgotPasswordBtn").addEventListener("click",sendPasswordRecovery);
 
   S.auth.onAuthStateChange(async(event,session)=>{
+    if(event==="PASSWORD_RECOVERY"){
+      PASSWORD_RECOVERY_MODE=true;
+      showPasswordReset();
+      return;
+    }
     if(event==="SIGNED_OUT"){
-      CURRENT_USER=null;CURRENT_ACCESS=null;on=false;
+      CURRENT_USER=null;CURRENT_ACCESS=null;on=false;PASSWORD_RECOVERY_MODE=false;
       showAuthGate();
       return;
     }
+    if(PASSWORD_RECOVERY_MODE)return;
     if(session?.user && (!CURRENT_USER || CURRENT_USER.id!==session.user.id)){
       await enterSecureApp(session.user);
     }
@@ -41,18 +50,84 @@ async function init(){
 
   const {data:{session},error}=await S.auth.getSession();
   if(error)console.warn(error);
-  if(session?.user)await enterSecureApp(session.user);
-  else showAuthGate();
+  if(session?.user && isRecentUnfinishedRecovery(session.user)){
+    PASSWORD_RECOVERY_MODE=true;
+    showPasswordReset();
+  }else if(session?.user){
+    await enterSecureApp(session.user);
+  }else{
+    showAuthGate();
+  }
 }
 
+function recoverySentMs(user){
+  const t=Date.parse(user?.recovery_sent_at||"");
+  return Number.isFinite(t)?t:0;
+}
+function isRecentUnfinishedRecovery(user){
+  const sent=recoverySentMs(user);
+  if(!sent)return false;
+  const completed=Number(localStorage.getItem("gpm_password_reset_completed_at")||0);
+  return sent>completed && Date.now()-sent<60*60*1000;
+}
 function showAuthGate(message=""){
   if($("authGate"))$("authGate").hidden=false;
   if($("appShell"))$("appShell").hidden=true;
+  if($("loginForm"))$("loginForm").hidden=false;
+  if($("resetPasswordForm"))$("resetPasswordForm").hidden=true;
+  if($("authSessionNote"))$("authSessionNote").textContent="Your session will stay signed in on this device until you sign out.";
   if($("authMessage"))$("authMessage").textContent=message;
+}
+function showPasswordReset(message="Recovery link verified. Please choose your new password."){
+  if($("authGate"))$("authGate").hidden=false;
+  if($("appShell"))$("appShell").hidden=true;
+  if($("loginForm"))$("loginForm").hidden=true;
+  if($("resetPasswordForm"))$("resetPasswordForm").hidden=false;
+  if($("authSessionNote"))$("authSessionNote").textContent="After setting the password, this device will remain signed in.";
+  if($("authMessage"))$("authMessage").textContent=message;
+  setTimeout(()=>$("newPassword")?.focus(),0);
 }
 function showSecureApp(){
   if($("authGate"))$("authGate").hidden=true;
   if($("appShell"))$("appShell").hidden=false;
+}
+async function sendPasswordRecovery(){
+  const email=$("loginEmail")?.value.trim().toLowerCase();
+  const msg=$("authMessage");
+  if(!email){msg.textContent="Enter your business email first.";$("loginEmail")?.focus();return}
+  const btn=$("forgotPasswordBtn");btn.disabled=true;btn.textContent="Sending...";msg.textContent="";
+  try{
+    const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});
+    if(error)throw error;
+    msg.textContent="Password recovery email sent. Please use the link in that email.";
+  }catch(err){
+    console.warn(err);
+    const raw=String(err?.message||"").toLowerCase();
+    msg.textContent=raw.includes("rate limit")?"Email rate limit reached. Please wait before requesting another recovery email.":(err?.message||"Could not send recovery email.");
+  }finally{btn.disabled=false;btn.textContent="Forgot password?"}
+}
+async function setRecoveredPassword(e){
+  e.preventDefault();
+  const p1=$("newPassword").value;
+  const p2=$("confirmNewPassword").value;
+  const msg=$("authMessage"),btn=$("resetPasswordBtn");
+  msg.textContent="";
+  if(p1.length<8){msg.textContent="Use at least 8 characters.";return}
+  if(p1!==p2){msg.textContent="The passwords do not match.";return}
+  btn.disabled=true;btn.textContent="Saving...";
+  try{
+    const {data,error}=await S.auth.updateUser({password:p1});
+    if(error)throw error;
+    localStorage.setItem("gpm_password_reset_completed_at",String(Date.now()));
+    PASSWORD_RECOVERY_MODE=false;
+    msg.textContent="Password set successfully. Opening Global Pipeline Manager...";
+    const user=data?.user||(await S.auth.getUser()).data?.user;
+    if(!user)throw new Error("Password was saved, but the secure session could not be opened.");
+    await enterSecureApp(user);
+  }catch(err){
+    console.warn(err);
+    msg.textContent=err?.message||"Could not set the new password.";
+  }finally{btn.disabled=false;btn.textContent="Set new password"}
 }
 async function signInWithPassword(e){
   e.preventDefault();

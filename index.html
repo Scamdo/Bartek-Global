@@ -12,9 +12,21 @@
         <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password" required>
       </label>
       <button id="loginBtn" class="red" type="submit">Sign in</button>
+      <button id="forgotPasswordBtn" class="auth-link-btn" type="button">Forgot password?</button>
+    </form>
+    <form id="resetPasswordForm" hidden>
+      <div class="auth-reset-intro">Create a new password for your account.</div>
+      <label>New password
+        <input id="newPassword" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required>
+      </label>
+      <label>Confirm new password
+        <input id="confirmNewPassword" type="password" autocomplete="new-password" placeholder="Repeat password" minlength="8" required>
+      </label>
+      <button id="resetPasswordBtn" class="red" type="submit">Set new password</button>
     </form>
     <div id="authMessage" class="auth-message"></div>
-    <small>Your session will stay signed in on this device until you sign out.</small>
+    <small id="authSessionNote">Your session will stay signed in on this device until you sign out.</small>
+    <div class="app-version">v1.9.2</div>
   </div>
 </div>
 <div id="appShell" hidden>
@@ -45,7 +57,7 @@
       <span id="currentUserRole"></span>
       <button type="button" onclick="signOutUser()">Sign out</button>
     </div>
-    <small id="mode">Secure mode</small></aside>
+    <small id="mode">Secure mode</small><small class="sidebar-version">v1.9.2</small></aside>
 <main><header><div><h1>Global Pipeline Manager</h1><p>Commercial pipeline overview</p></div><button class="red" onclick="openForm()">+ New prospect</button></header>
 <section id="dash">
 <div class="filters dashboard-filters">

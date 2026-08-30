@@ -249,3 +249,11 @@ aside{display:flex;flex-direction:column}.side-nav{display:flex;flex-direction:c
 .system-reminder-actions{display:flex;justify-content:flex-end;margin:10px 0}.mini-reminders{border-top:1px solid #eceeef;margin-top:10px}
 .mini-reminder{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #eceeef}.mini-reminder b,.mini-reminder span{display:block}.mini-reminder span{font-size:12px;color:#68717c;margin-top:2px}.mini-reminder.done{opacity:.6}
 @media(max-width:900px){.task-toolbar,.system-reminder-grid{grid-template-columns:1fr}}
+
+/* v1.9.2 password recovery flow + visible version */
+.auth-reset-intro{margin:0 0 14px;color:#59636d;font-size:14px}
+.auth-link-btn{background:transparent!important;color:#4f5963!important;border:0!important;box-shadow:none!important;font-size:12px;font-weight:700;padding:7px 0!important;margin-top:7px!important}
+.auth-link-btn:hover{text-decoration:underline}
+.auth-card form[hidden]{display:none}
+.app-version{margin-top:10px;text-align:center;color:#a0a7ae;font-size:10px;font-weight:700;letter-spacing:.05em}
+.sidebar-version{display:block;text-align:center;color:#67717a;font-size:9px;margin:0 10px 10px}
