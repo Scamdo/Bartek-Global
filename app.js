@@ -1,6 +1,6 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","policy_start_date","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
-let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null;
+let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null,REMINDERS=[];
 
 const n=v=>Number(String(v??"").trim().replace(/\s/g,"").replace(",", "."))||0;
 const fmt=v=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n(v)).replace(/,/g," ");
@@ -115,9 +115,13 @@ async function enterSecureApp(user){
     DOCS_BY_OPPORTUNITY={};
     (docs.data||[]).forEach(d=>(DOCS_BY_OPPORTUNITY[d.opportunity_id]??=[]).push(d));
 
+    const rem=await S.from("reminders").select("*").order("due_at",{ascending:true});
+    if(rem.error)throw rem.error;
+    REMINDERS=rem.data||[];
+
     on=true;
     if($("mode"))$("mode").textContent="Secure online database";
-    opts();render();table();if(typeof updateSidebar==="function")updateSidebar();
+    await ensureAutomaticReminders();opts();render();table();if(typeof updateSidebar==="function")updateSidebar();
   }catch(err){
     console.error(err);
     on=false;
@@ -126,7 +130,7 @@ async function enterSecureApp(user){
 }
 window.signOutUser=async()=>{
   if(S)await S.auth.signOut();
-  R=[];COMPANIES=[];DOCS_BY_OPPORTUNITY={};on=false;
+  R=[];COMPANIES=[];DOCS_BY_OPPORTUNITY={};REMINDERS=[];on=false;
 };
 function isAdmin(){return String(CURRENT_ACCESS?.role||"").toLowerCase()==="admin"}
 
@@ -474,7 +478,11 @@ window.edit=async id=>{
   $("insurable_turnover").value=fmt(r.insurable_turnover ?? 0);
   $("expected_premium_original").value=fmt(r.expected_premium_original ?? r.expected_premium ?? 0);
   $("expected_premium").value=fmt(r.expected_premium ?? 0);
-  $("id").value=id;$("docsLocked").hidden=true;$("docsArea").hidden=false;$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview();await loadDocuments(id)
+  $("id").value=id;$("docsLocked").hidden=true;$("docsArea").hidden=false;
+  if($("systemReminderLocked"))$("systemReminderLocked").hidden=true;
+  if($("systemReminderArea"))$("systemReminderArea").hidden=false;
+  $("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";
+  setDefaultSystemReminder(r);dlg.showModal();updateReminderPreview();await loadDocuments(id);renderProspectReminders(id)
 };
 window.del=async id=>{if(!isAdmin())return alert("Only an administrator can delete prospects.");if(!confirm("Delete prospect?"))return;if(on){let x=await S.from("prospects").delete().eq("id",id);if(x.error)return alert(x.error.message)}R=R.filter(x=>String(x.id)!==String(id));if(!on)localStorage.gpm=JSON.stringify(R);opts();render();table()}
 
@@ -876,16 +884,36 @@ initDashboardClicks();
 
 window.show=id=>{$("dash").hidden=id!=="dash";$("pros").hidden=id!=="pros";$("board").hidden=id!=="board";if(id==="dash")render();else if(id==="board")renderBoard();else table()};
 
+
+function localDateKey(d){const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`}
+function dueLocalDateTime(dateStr,timeStr="09:00"){if(!dateStr)return null;const d=new Date(`${dateStr}T${timeStr||"09:00"}:00`);return isNaN(d)?null:d.toISOString()}
+function reminderProspect(id){return R.find(r=>String(r.id)===String(id))}
+function reminderIsOpen(x){return x.status==="open"}
+function reminderDays(x){if(!x?.due_at)return null;const t=new Date();t.setHours(0,0,0,0);const d=new Date(x.due_at);d.setHours(0,0,0,0);return Math.round((d-t)/86400000)}
+function defaultReminderAssignee(r){return r?.sales_manager||CURRENT_ACCESS?.display_name||CURRENT_USER?.email||""}
+function setDefaultSystemReminder(r){const d=new Date();d.setDate(d.getDate()+7);if($("sys_reminder_date"))$("sys_reminder_date").value=localDateKey(d);if($("sys_reminder_time"))$("sys_reminder_time").value="09:00";if($("sys_reminder_type"))$("sys_reminder_type").value="Follow-up";if($("sys_reminder_assignee"))$("sys_reminder_assignee").value=defaultReminderAssignee(r);if($("sys_reminder_note"))$("sys_reminder_note").value=""}
+async function createReminder(payload){const x=await S.from("reminders").insert(payload).select().single();if(x.error){alert(x.error.message);return null}REMINDERS.push(x.data);REMINDERS.sort((a,b)=>String(a.due_at).localeCompare(String(b.due_at)));updateTaskSidebar();return x.data}
+window.addSystemReminderFromDialog=async()=>{const opportunity_id=$("id").value;if(!opportunity_id)return alert("Save the prospect first.");const date=$("sys_reminder_date").value,time=$("sys_reminder_time").value||"09:00";if(!date)return alert("Choose a reminder date.");const r=reminderProspect(opportunity_id);const made=await createReminder({opportunity_id,due_at:dueLocalDateTime(date,time),reminder_type:$("sys_reminder_type").value,note:$("sys_reminder_note").value.trim(),assigned_to:$("sys_reminder_assignee").value.trim()||defaultReminderAssignee(r),status:"open",automatic:false,created_by:CURRENT_USER?.email||null});if(made){$("sys_reminder_note").value="";renderProspectReminders(opportunity_id)}};
+function renderProspectReminders(opportunityId){const root=$("prospectRemindersList");if(!root)return;const rows=REMINDERS.filter(x=>String(x.opportunity_id)===String(opportunityId)).sort((a,b)=>String(a.due_at).localeCompare(String(b.due_at)));root.innerHTML=rows.length?`<div class="mini-reminders">${rows.map(x=>`<div class="mini-reminder ${x.status!=="open"?"done":""}"><div><b>${new Date(x.due_at).toLocaleString("en-GB",{dateStyle:"medium",timeStyle:"short"})}</b><span>${esc(x.reminder_type)}${x.note?" · "+esc(x.note):""}</span></div><div>${x.status==="open"?`<button type="button" onclick="completeReminder('${x.id}',true)">Done</button>`:`<span>Done</span>`}</div></div>`).join("")}</div>`:'<p class="muted">No system reminders yet.</p>'}
+window.completeReminder=async(id,fromDialog=false)=>{const x=REMINDERS.find(r=>String(r.id)===String(id));if(!x)return;const u=await S.from("reminders").update({status:"done",completed_at:new Date().toISOString()}).eq("id",id);if(u.error)return alert(u.error.message);x.status="done";x.completed_at=new Date().toISOString();updateTaskSidebar();renderTasks();if(fromDialog)renderProspectReminders(x.opportunity_id)};
+window.reopenReminder=async id=>{const x=REMINDERS.find(r=>String(r.id)===String(id));if(!x)return;const u=await S.from("reminders").update({status:"open",completed_at:null}).eq("id",id);if(u.error)return alert(u.error.message);x.status="open";x.completed_at=null;updateTaskSidebar();renderTasks()};
+async function ensureAutomaticReminders(){if(!on)return;const existing=new Set(REMINDERS.map(x=>x.auto_key).filter(Boolean)),ins=[];R.filter(isPipelineOpen).forEach(r=>{if(r.created_at){const d=new Date(r.created_at);d.setDate(d.getDate()+7);d.setHours(9,0,0,0);const key=`created7:${r.id}`;if(!existing.has(key))ins.push({opportunity_id:r.id,due_at:d.toISOString(),reminder_type:"Follow-up",note:"7-day follow-up after prospect creation",assigned_to:defaultReminderAssignee(r),status:"open",automatic:true,auto_key:key,created_by:"system"})}if(r.offer_deadline){[7,2].forEach(nDays=>{const d=new Date(r.offer_deadline+"T09:00:00");d.setDate(d.getDate()-nDays);const key=`deadline${nDays}:${r.id}:${r.offer_deadline}`;if(!existing.has(key))ins.push({opportunity_id:r.id,due_at:d.toISOString(),reminder_type:"Offer deadline",note:`Offer deadline in ${nDays} days`,assigned_to:defaultReminderAssignee(r),status:"open",automatic:true,auto_key:key,created_by:"system"})})}});if(ins.length){const x=await S.from("reminders").upsert(ins,{onConflict:"auto_key",ignoreDuplicates:true}).select();if(!x.error&&x.data?.length)REMINDERS.push(...x.data);else if(x.error)console.warn(x.error)}updateTaskSidebar()}
+function taskRows(){const scope=$("taskScope")?.value||"open",assignee=$("taskAssignee")?.value||"",type=$("taskTypeFilter")?.value||"",q=($("taskSearch")?.value||"").toLowerCase().trim();let a=[...REMINDERS];if(scope==="open")a=a.filter(reminderIsOpen);if(scope==="done")a=a.filter(x=>x.status==="done");if(scope==="overdue")a=a.filter(x=>reminderIsOpen(x)&&reminderDays(x)<0);if(scope==="today")a=a.filter(x=>reminderIsOpen(x)&&reminderDays(x)===0);if(scope==="week")a=a.filter(x=>{const d=reminderDays(x);return reminderIsOpen(x)&&d!==null&&d>=0&&d<=7});if(assignee)a=a.filter(x=>x.assigned_to===assignee);if(type)a=a.filter(x=>x.reminder_type===type);if(q)a=a.filter(x=>{const r=reminderProspect(x.opportunity_id);return [r?.prospect_name,x.note,x.reminder_type,x.assigned_to].join(" ").toLowerCase().includes(q)});return a.sort((x,y)=>String(x.due_at).localeCompare(String(y.due_at)))}
+function populateTaskFilters(){const fill=(id,vals,label)=>{const e=$(id);if(!e)return;const cur=e.value;e.innerHTML=`<option value="">${label}</option>`+[...new Set(vals.filter(Boolean))].sort().map(v=>`<option>${esc(v)}</option>`).join("");if([...e.options].some(o=>o.value===cur))e.value=cur};fill("taskAssignee",REMINDERS.map(x=>x.assigned_to),"All assignees");fill("taskTypeFilter",REMINDERS.map(x=>x.reminder_type),"All types")}
+window.renderTasks=()=>{const body=$("tasksBody");if(!body)return;populateTaskFilters();const a=taskRows(),open=REMINDERS.filter(reminderIsOpen),over=open.filter(x=>reminderDays(x)<0),today=open.filter(x=>reminderDays(x)===0);$("taskSummary").innerHTML=`<b>${open.length}</b> open · <b>${over.length}</b> overdue · <b>${today.length}</b> due today`;body.innerHTML=a.length?a.map(x=>{const r=reminderProspect(x.opportunity_id),d=reminderDays(x),cl=x.status==="done"?"task-done":d<0?"task-overdue":d===0?"task-today":"";return `<tr class="${cl}"><td><b>${new Date(x.due_at).toLocaleDateString("en-GB")}</b><br><span class="muted">${new Date(x.due_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span></td><td><button class="link-button" onclick="edit('${x.opportunity_id}')">${esc(r?.prospect_name||"Unknown prospect")}</button></td><td>${esc(x.reminder_type||"")}</td><td>${esc(x.note||"")}</td><td>${esc(x.assigned_to||"")}</td><td>${x.automatic?'<span class="auto-pill">Automatic</span>':'Manual'}</td><td>${x.status==="done"?'<span class="access-pill active">Done</span>':'<span class="access-pill blocked">Open</span>'}</td><td>${x.status==="open"?`<button onclick="completeReminder('${x.id}')">Done</button>`:`<button onclick="reopenReminder('${x.id}')">Reopen</button>`}</td></tr>`}).join(""):'<tr><td colspan="8">No reminders for this view.</td></tr>'};
+function updateTaskSidebar(){const open=REMINDERS.filter(reminderIsOpen),over=open.filter(x=>reminderDays(x)<0),today=open.filter(x=>reminderDays(x)===0),week=open.filter(x=>{const d=reminderDays(x);return d!==null&&d>=0&&d<=7});[["sideTasksOpen",open.length],["sideTasksOverdue",over.length],["sideTasksToday",today.length],["sideTasksWeek",week.length]].forEach(([id,v])=>{if($(id))$(id).textContent=v})}
+window.openTaskView=scope=>{show("tasks");if($("taskScope"))$("taskScope").value=scope;renderTasks()};
+
 function policyStartDays(r){if(!r.policy_start_date)return null;const t=new Date();t.setHours(0,0,0,0);return Math.ceil((new Date(r.policy_start_date+"T00:00:00")-t)/86400000)}
 function updateSidebar(){
  const active=R.filter(isPipelineOpen),over=active.filter(r=>days(r.offer_deadline)!==null&&days(r.offer_deadline)<0),due=active.filter(r=>{const d=days(r.offer_deadline);return d!==null&&d>=0&&d<=7}),starts=active.filter(r=>{const d=policyStartDays(r);return d!==null&&d>=0&&d<=90}),won=R.filter(r=>statusLower(r)==="won");
  [["sideOverdue",over.length],["sideDue7",due.length],["sideStarts90",starts.length],["sideWon",won.length],["sideAttention",new Set([...over,...due].map(r=>r.id)).size]].forEach(([id,v])=>{if($(id))$(id).textContent=v});
  if($("sidePipelinePremium"))$("sidePipelinePremium").textContent=moneyText(active.reduce((s,r)=>s+n(r.expected_premium),0),"EUR");
- if($("sideStartsPremium"))$("sideStartsPremium").textContent=moneyText(starts.reduce((s,r)=>s+n(r.expected_premium),0),"EUR");
+ if($("sideStartsPremium"))$("sideStartsPremium").textContent=moneyText(starts.reduce((s,r)=>s+n(r.expected_premium),0),"EUR"); updateTaskSidebar();
 }
 window.openSidebarView=type=>{if(type==="overdue"||type==="due7"||type==="won")return openDashboardDrill(type);const ids=R.filter(isPipelineOpen).filter(r=>{const d=policyStartDays(r);return d!==null&&d>=0&&d<=90}).map(r=>String(r.id));DASH_DRILL={ids,label:"Policy starts - next 90 days"};updateDrillBanner();show("pros");table()};
 window.renderDocuments=()=>{const b=$("allDocsBody");if(!b)return;const q=($("docSearch")?.value||"").toLowerCase(),rows=[];R.forEach(r=>(DOCS_BY_OPPORTUNITY[r.id]||[]).forEach(d=>{if(!q||[r.prospect_name,r.customer_country,d.file_name,d.document_type,d.description].join(" ").toLowerCase().includes(q))rows.push({r,d})}));b.innerHTML=rows.length?rows.map(({r,d})=>`<tr><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.customer_country)}</td><td>${esc(d.file_name)}</td><td>${esc(d.document_type)}</td><td>${esc(d.description)}</td><td>${d.created_at?new Date(d.created_at).toLocaleDateString():""}</td><td><button onclick="openFiles('${r.id}')">Open</button></td></tr>`).join(""):'<tr><td colspan="7">No documents found.</td></tr>'};
 window.renderReports=()=>{const p=$("policyStartReport"),s=$("stageReport");if(!p||!s)return;const a=R.filter(isPipelineOpen),b={"Next 30 days":0,"31-60 days":0,"61-90 days":0,"Later":0,"No start date":0};a.forEach(r=>{const d=policyStartDays(r);if(d===null)b["No start date"]++;else if(d>=0&&d<=30)b["Next 30 days"]++;else if(d<=60)b["31-60 days"]++;else if(d<=90)b["61-90 days"]++;else if(d>90)b["Later"]++});p.innerHTML=Object.entries(b).map(([k,v])=>`<div class="report-line"><span>${k}</span><b>${v}</b></div>`).join("");const g={};R.forEach(r=>{const x=normalizeBoardStage(r.status);g[x]=(g[x]||0)+1});s.innerHTML=BOARD_STAGES.map(x=>`<div class="report-line"><span>${x}</span><b>${g[x]||0}</b></div>`).join("")};
 
-window.show=x=>{["dash","pros","board","documents","reports","adminUsers"].forEach(id=>{if($(id))$(id).hidden=id!==x});if(x==="dash")render();else if(x==="board")renderBoard();else if(x==="documents")renderDocuments();else if(x==="reports")renderReports();else if(x==="adminUsers")loadAdminUsers();else table();updateSidebar()};
+window.show=x=>{["dash","pros","board","tasks","documents","reports","adminUsers"].forEach(id=>{if($(id))$(id).hidden=id!==x});if(x==="dash")render();else if(x==="board")renderBoard();else if(x==="tasks")renderTasks();else if(x==="documents")renderDocuments();else if(x==="reports")renderReports();else if(x==="adminUsers")loadAdminUsers();else table();updateSidebar()};
 setTimeout(updateSidebar,0);

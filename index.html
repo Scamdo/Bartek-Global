@@ -29,6 +29,11 @@
 <button onclick="openSidebarView('due7')"><span class="nav-icon">◷</span>Due this week<b id="sideDue7" class="nav-badge warning">0</b></button>
 <button onclick="openSidebarView('starts90')"><span class="nav-icon">↗</span>Policy starts<b id="sideStarts90" class="nav-badge">0</b></button>
 <button onclick="openSidebarView('won')"><span class="nav-icon">✓</span>Won<b id="sideWon" class="nav-badge success">0</b></button>
+<div class="nav-section-label">TASKS</div>
+<button onclick="show('tasks')"><span class="nav-icon">☑</span>Tasks<b id="sideTasksOpen" class="nav-badge">0</b></button>
+<button onclick="openTaskView('overdue')"><span class="nav-icon">!</span>Task overdue<b id="sideTasksOverdue" class="nav-badge danger">0</b></button>
+<button onclick="openTaskView('today')"><span class="nav-icon">●</span>Task today<b id="sideTasksToday" class="nav-badge warning">0</b></button>
+<button onclick="openTaskView('week')"><span class="nav-icon">◷</span>Task this week<b id="sideTasksWeek" class="nav-badge">0</b></button>
 <div class="nav-section-label">TOOLS</div>
 <button onclick="show('documents')"><span class="nav-icon">▤</span>Documents</button>
 <button onclick="show('reports')"><span class="nav-icon">▥</span>Reports</button>
@@ -92,6 +97,18 @@
 <select id="boardBroker" onchange="renderBoard()"><option value="">All brokers</option></select>
 </div></div>
 <div id="pipelineBoard" class="pipeline-board"></div></section>
+<section id="tasks" hidden>
+<div class="section-head"><div><h2>Tasks & Reminders</h2><p>Follow-ups generated manually or automatically from the pipeline.</p></div></div>
+<article>
+<div class="task-toolbar">
+<select id="taskScope" onchange="renderTasks()"><option value="open">Open tasks</option><option value="overdue">Overdue</option><option value="today">Today</option><option value="week">Next 7 days</option><option value="done">Completed</option><option value="all">All tasks</option></select>
+<select id="taskAssignee" onchange="renderTasks()"><option value="">All assignees</option></select>
+<select id="taskTypeFilter" onchange="renderTasks()"><option value="">All types</option></select>
+<input id="taskSearch" placeholder="Search prospect or reminder" oninput="renderTasks()">
+</div>
+<div id="taskSummary" class="task-summary"></div>
+<div class="tablewrap"><table><thead><tr><th>Due</th><th>Prospect</th><th>Type</th><th>Reminder</th><th>Assigned to</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead><tbody id="tasksBody"></tbody></table></div>
+</article></section>
 <section id="documents" hidden><div class="section-head"><div><h2>Documents</h2><p>All attached opportunity documents in one place.</p></div></div><article><div class="toolbar"><input id="docSearch" placeholder="Search prospect or document" oninput="renderDocuments()"></div><div class="tablewrap"><table><thead><tr><th>Prospect</th><th>Customer country</th><th>Document</th><th>Type</th><th>Description / version</th><th>Uploaded</th><th>Open</th></tr></thead><tbody id="allDocsBody"></tbody></table></div></article></section>
 <section id="reports" hidden><div class="section-head"><div><h2>Reports</h2><p>Quick commercial views from the current pipeline.</p></div></div><div class="report-grid"><article><h3>Policy starts</h3><div id="policyStartReport"></div></article><article><h3>Pipeline by stage</h3><div id="stageReport"></div></article></div></section>
 <section id="adminUsers" hidden>
@@ -148,7 +165,21 @@
 <label>Expected premium<input id="expected_premium_original" readonly title="Calculated automatically in selected currency"></label>
 <label>Expected premium EUR<input id="expected_premium" readonly title="Calculated automatically in EUR"></label>
 <label>Premium principle<select id="premium_principle"><option value="turnover">turnover</option><option value="outstanding balance">outstanding balance</option><option value="TPE based">TPE based</option><option value="other">other</option></select></label><label>Closed date<input id="closed_date" type="date"></label>
-<label class="full">Prospect remarks<textarea id="prospect_remarks"></textarea></label></div><section class="docs-section"><div class="docs-head"><div><h3>Documents / Offers</h3><p>Save the opportunity first, then attach PDF offers or revisions.</p></div></div><div id="docsLocked" class="docs-locked">Save this opportunity before uploading documents.</div><div id="docsArea" hidden><div class="docs-upload"><select id="document_type"><option>Offer</option><option>Final Offer</option><option>Renewal Offer</option><option>Precheck</option><option>Other</option></select><input id="document_description" placeholder="Short description or version"><input id="document_file" type="file" accept="application/pdf,.pdf"><button type="button" onclick="uploadDocument()">Upload PDF</button></div><div id="documentsList"></div></div></section><section class="calendar-section">
+<label class="full">Prospect remarks<textarea id="prospect_remarks"></textarea></label></div><section class="docs-section"><div class="docs-head"><div><h3>Documents / Offers</h3><p>Save the opportunity first, then attach PDF offers or revisions.</p></div></div><div id="docsLocked" class="docs-locked">Save this opportunity before uploading documents.</div><div id="docsArea" hidden><div class="docs-upload"><select id="document_type"><option>Offer</option><option>Final Offer</option><option>Renewal Offer</option><option>Precheck</option><option>Other</option></select><input id="document_description" placeholder="Short description or version"><input id="document_file" type="file" accept="application/pdf,.pdf"><button type="button" onclick="uploadDocument()">Upload PDF</button></div><div id="documentsList"></div></div></section><section class="system-reminder-section">
+<div class="docs-head"><div><h3>System reminder</h3><p>Create a task that appears directly in Global Pipeline Manager.</p></div></div>
+<div id="systemReminderLocked" class="docs-locked">Save this opportunity before adding a system reminder.</div>
+<div id="systemReminderArea" hidden>
+<div class="system-reminder-grid">
+<label>Date<input id="sys_reminder_date" type="date"></label>
+<label>Time<input id="sys_reminder_time" type="time" value="09:00"></label>
+<label>Type<select id="sys_reminder_type"><option>Follow-up</option><option>Call broker</option><option>Check precheck</option><option>Offer deadline</option><option>Policy start</option><option>Other</option></select></label>
+<label>Assigned to<input id="sys_reminder_assignee" list="managersList" placeholder="Sales Manager / owner"></label>
+<label class="full">Reminder note<input id="sys_reminder_note" placeholder="e.g. Follow up with broker"></label>
+</div>
+<div class="system-reminder-actions"><button type="button" onclick="addSystemReminderFromDialog()">+ Add reminder</button></div>
+<div id="prospectRemindersList"></div>
+</div></section>
+<section class="calendar-section">
 <div class="docs-head"><div><h3>Calendar reminder</h3><p>Create a ready-to-save Outlook / calendar event for this opportunity.</p></div></div>
 <div class="calendar-grid">
 <label>Remind me in<input id="reminder_amount" type="number" min="0" value="2" oninput="updateReminderPreview()"></label>

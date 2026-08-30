@@ -237,3 +237,15 @@ aside{display:flex;flex-direction:column}.side-nav{display:flex;flex-direction:c
 /* v1.8.2 password login */
 .auth-card form label+label{margin-top:12px}
 .auth-card input[type="password"]{width:100%;margin-top:7px;box-sizing:border-box}
+
+/* v1.9.0 Tasks & Reminders */
+.task-toolbar{display:grid;grid-template-columns:170px 190px 170px 1fr;gap:8px;margin-bottom:12px}
+.task-summary{padding:10px 12px;background:#f5f6f7;border-radius:8px;margin-bottom:12px;color:#59636d}
+.task-overdue td:first-child{border-left:4px solid #c74444}.task-today td:first-child{border-left:4px solid #d9951e}.task-done{opacity:.65}
+.auto-pill{display:inline-block;background:#eef1f4;border-radius:999px;padding:4px 7px;font-size:11px;font-weight:700}
+.link-button{background:none!important;border:0!important;padding:0!important;color:#1e4e7a!important;text-decoration:underline;cursor:pointer}
+.system-reminder-section{margin-top:18px;border-top:1px solid #e4e7ea;padding-top:16px}
+.system-reminder-grid{display:grid;grid-template-columns:150px 120px 180px 1fr;gap:10px}.system-reminder-grid .full{grid-column:1/-1}
+.system-reminder-actions{display:flex;justify-content:flex-end;margin:10px 0}.mini-reminders{border-top:1px solid #eceeef;margin-top:10px}
+.mini-reminder{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #eceeef}.mini-reminder b,.mini-reminder span{display:block}.mini-reminder span{font-size:12px;color:#68717c;margin-top:2px}.mini-reminder.done{opacity:.6}
+@media(max-width:900px){.task-toolbar,.system-reminder-grid{grid-template-columns:1fr}}
