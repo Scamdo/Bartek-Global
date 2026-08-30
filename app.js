@@ -1,6 +1,6 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","policy_start_date","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
-let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={};
+let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null;
 
 const n=v=>Number(String(v??"").trim().replace(/\s/g,"").replace(",", "."))||0;
 const fmt=v=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n(v)).replace(/,/g," ");
@@ -58,16 +58,18 @@ function filtered(){
   return a;
 }
 function group(a,k){let o={};a.forEach(r=>{let x=r[k]||"Not set";o[x]=(o[x]||0)+1});return o}
-function renderBars(id,obj,filterId){let el=$(id),entries=Object.entries(obj).sort((a,b)=>b[1]-a[1]),mx=Math.max(1,...entries.map(x=>x[1]));el.innerHTML=entries.length?entries.map(([k,v])=>`<div class="bar clickable" data-k="${esc(k)}"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${v/mx*100}%"></div></div><b>${v}</b></div>`).join(""):"<p>No data</p>";if(filterId)el.querySelectorAll(".bar").forEach(x=>x.onclick=()=>{$(filterId).value=x.dataset.k;render()})}
+function renderBars(id,obj,field){let el=$(id),entries=Object.entries(obj).sort((a,b)=>b[1]-a[1]),mx=Math.max(1,...entries.map(x=>x[1]));el.innerHTML=entries.length?entries.map(([k,v])=>`<div class="bar clickable" role="button" tabindex="0" data-k="${esc(k)}"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${v/mx*100}%"></div></div><b>${v}</b></div>`).join(""):"<p>No data</p>";if(field)el.querySelectorAll(".bar").forEach(x=>{const go=()=>openDashboardDrill("field",{field,value:x.dataset.k,label:x.dataset.k});x.onclick=go;x.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}})}
 function render(){
   let a=filtered();
   $("total").textContent=a.length;$("open").textContent=a.filter(x=>statusLower(x)==="open").length;$("won").textContent=a.filter(x=>statusLower(x)==="won").length;$("lost").textContent=a.filter(x=>statusLower(x)==="lost").length;$("overdue").textContent=a.filter(x=>statusLower(x)==="open"&&days(x.offer_deadline)<0).length;$("due7").textContent=a.filter(x=>{let d=days(x.offer_deadline);return statusLower(x)==="open"&&d!==null&&d>=0&&d<=7}).length;$("premium").textContent=moneyText(a.reduce((s,x)=>s+n(x.expected_premium),0),"EUR");$("turnover").textContent=moneyText(a.reduce((s,x)=>s+n(x.insurable_turnover),0),"EUR");
-  renderBars("countries",group(a,"customer_country"),"df");renderBars("managers",group(a,"sales_manager"),"mf");renderBars("brokers",group(a,"broker"),"bf");renderBars("statuses",group(a,"status"),"sf");
+  renderBars("countries",group(a,"customer_country"),"customer_country");renderBars("managers",group(a,"sales_manager"),"sales_manager");renderBars("brokers",group(a,"broker"),"broker");renderBars("statuses",group(a,"status"),"status");
   let dl=a.filter(r=>statusLower(r)==="open"&&days(r.offer_deadline)!==null&&days(r.offer_deadline)<=30).sort((x,y)=>days(x.offer_deadline)-days(y.offer_deadline)).slice(0,20);
-  $("deadlineBody").innerHTML=dl.map(r=>`<tr><td data-col-key="Prospect name"><b>${esc(r.prospect_name)}</b></td><td data-col-key="Customer country">${esc(r.customer_country)}</td><td data-col-key="Sales Manager">${esc(r.sales_manager)}</td><td data-col-key="Offer deadline">${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)}</td><td data-col-key="Status">${esc(r.status)}</td><td data-col-key="Expected premium EUR">${moneyText(r.expected_premium,"EUR")}</td></tr>`).join("");
+  $("deadlineBody").innerHTML=dl.map(r=>`<tr class="deadline-click" role="button" tabindex="0" data-id="${esc(r.id)}"><td data-col-key="Prospect name"><b>${esc(r.prospect_name)}</b></td><td data-col-key="Customer country">${esc(r.customer_country)}</td><td data-col-key="Sales Manager">${esc(r.sales_manager)}</td><td data-col-key="Offer deadline">${esc(r.offer_deadline)}</td><td class="${days(r.offer_deadline)<0?"late":""}">${days(r.offer_deadline)}</td><td data-col-key="Status">${esc(r.status)}</td><td data-col-key="Expected premium EUR">${moneyText(r.expected_premium,"EUR")}</td></tr>`).join("");
+  $("deadlineBody").querySelectorAll(".deadline-click").forEach(row=>{const go=()=>openDashboardDrill("id",{id:row.dataset.id,label:"Selected prospect"});row.onclick=go;row.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}});
 }
 function prospectFiltered(){
   let q=$("search").value.toLowerCase().trim(),a=R.filter(r=>!q||Object.values(r).some(v=>String(v??"").toLowerCase().includes(q)));
+  if(DASH_DRILL?.ids){const ids=new Set(DASH_DRILL.ids.map(String));a=a.filter(r=>ids.has(String(r.id)))}
   [["ptStatus","status"],["ptCountry","customer_country"],["ptManager","sales_manager"],["ptBroker","broker"]].forEach(([id,k])=>{if($(id)?.value)a=a.filter(r=>String(r[k]||"")===$(id).value)});
   return a;
 }
@@ -83,6 +85,65 @@ function table(){
   }).join("");
   alignBodyToHeader();
 }
+
+function dashboardDrillSet(type,payload={}){
+  let a=filtered(),label="Dashboard selection";
+
+  if(type==="open"){a=a.filter(r=>statusLower(r)==="open");label="Open";}
+  else if(type==="won"){a=a.filter(r=>statusLower(r)==="won");label="Won";}
+  else if(type==="lost"){a=a.filter(r=>statusLower(r)==="lost");label="Lost";}
+  else if(type==="overdue"){a=a.filter(r=>statusLower(r)==="open"&&days(r.offer_deadline)<0);label="Overdue";}
+  else if(type==="due7"){a=a.filter(r=>{let d=days(r.offer_deadline);return statusLower(r)==="open"&&d!==null&&d>=0&&d<=7});label="Due within 7 days";}
+  else if(type==="field"){
+    a=a.filter(r=>String(r[payload.field]||"Not set")===String(payload.value));
+    const names={customer_country:"Customer country",sales_manager:"Sales Manager",broker:"Broker",status:"Status"};
+    label=`${names[payload.field]||payload.field}: ${payload.label||payload.value}`;
+  } else if(type==="id"){
+    a=a.filter(r=>String(r.id)===String(payload.id));
+    label=payload.label||"Selected prospect";
+  } else {
+    label="All prospects in current dashboard view";
+  }
+
+  return {ids:a.map(r=>String(r.id)),label};
+}
+
+function openDashboardDrill(type,payload={}){
+  DASH_DRILL=dashboardDrillSet(type,payload);
+
+  // Clear the independent Prospects controls, so the user sees exactly the dashboard selection.
+  if($("search"))$("search").value="";
+  ["ptStatus","ptCountry","ptManager","ptBroker"].forEach(id=>{if($(id))$(id).value=""});
+
+  updateDrillBanner();
+  show("pros");
+  table();
+  $("pros")?.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function updateDrillBanner(){
+  const b=$("drillBanner");
+  if(!b)return;
+  if(!DASH_DRILL){b.hidden=true;return}
+  b.hidden=false;
+  $("drillTitle").textContent=DASH_DRILL.label;
+  $("drillCount").textContent=` - ${DASH_DRILL.ids.length} prospect${DASH_DRILL.ids.length===1?"":"s"}`;
+}
+
+window.clearDashboardDrill=()=>{
+  DASH_DRILL=null;
+  updateDrillBanner();
+  table();
+};
+
+function initDashboardClicks(){
+  document.querySelectorAll(".kpi-click").forEach(card=>{
+    const go=()=>openDashboardDrill(card.dataset.drill||"total");
+    card.addEventListener("click",go);
+    card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}});
+  });
+}
+
 function resetDashboardFilters(){["df","gf","mf","bf","sf","deadlinef"].forEach(id=>{if($(id))$(id).value=""});render()}
 function show(x){$("dash").hidden=x!=="dash";$("pros").hidden=x!=="pros"}
 async function openForm(){ $("form").reset();$("id").value="";$("status").value="Open";$("opportunity_type").value="New Business";$("currency").value="EUR";$("fx_rate_to_eur").value="1";if($("fx_info"))$("fx_info").textContent="EUR base currency";$("docsLocked").hidden=false;$("docsArea").hidden=true;$("documentsList").innerHTML="";$("reminder_amount").value="2";$("reminder_unit").value="days";$("reminder_time").value="09:00";$("reminder_note").value="";dlg.showModal();updateReminderPreview()}
@@ -554,3 +615,5 @@ if(fxField){
     if(c!=="EUR" && !fxField.value.trim()) currencyChanged();
   });
 }
+
+initDashboardClicks();

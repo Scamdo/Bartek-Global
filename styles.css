@@ -158,3 +158,37 @@ thead .actions-col{
 #body tr.prospect-open td:first-child{border-left:4px solid #e0a72f}
 #body tr.prospect-won td:first-child{border-left:4px solid #2f8a49}
 #body tr.prospect-lost td:first-child{border-left:4px solid #c74444}
+
+/* v1.5.7 dashboard drill-through */
+.kpi-click{
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.kpi-click:hover{
+  background:#fffafa;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  transform:translateY(-1px);
+}
+.kpi-click:focus-visible,.bar.clickable:focus-visible,.deadline-click:focus-visible{
+  outline:2px solid #e11b22;
+  outline-offset:2px;
+}
+.bar.clickable{cursor:pointer}
+.bar.clickable:hover .fill{filter:brightness(.9)}
+.deadline-click{cursor:pointer}
+.deadline-click:hover td{background:#fff8f8}
+.drill-banner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:12px;
+  padding:10px 12px;
+  border:1px solid #efc5c7;
+  border-left:4px solid #e11b22;
+  border-radius:8px;
+  background:#fff8f8;
+}
+.drill-banner[hidden]{display:none}
+.drill-banner span{color:#5e6670;font-size:13px}
+.drill-banner button{white-space:nowrap}

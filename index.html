@@ -18,14 +18,14 @@
   <button onclick="resetDashboardFilters()">Reset filters</button>
 </div>
 <div class="kpis">
-  <div><span>Total prospects</span><b id="total">0</b></div>
-  <div><span>Open</span><b id="open">0</b></div>
-  <div><span>Won</span><b id="won">0</b></div>
-  <div><span>Lost</span><b id="lost">0</b></div>
-  <div><span>Overdue</span><b id="overdue">0</b></div>
-  <div><span>Due within 7 days</span><b id="due7">0</b></div>
-  <div><span>Expected premium</span><b id="premium">0</b></div>
-  <div><span>Insurable turnover</span><b id="turnover">0</b></div>
+  <div class="kpi-click" role="button" tabindex="0" data-drill="total"><span>Total prospects</span><b id="total">0</b></div>
+  <div class="kpi-click" role="button" tabindex="0" data-drill="open"><span>Open</span><b id="open">0</b></div>
+  <div class="kpi-click" role="button" tabindex="0" data-drill="won"><span>Won</span><b id="won">0</b></div>
+  <div class="kpi-click" role="button" tabindex="0" data-drill="lost"><span>Lost</span><b id="lost">0</b></div>
+  <div class="kpi-click" role="button" tabindex="0" data-drill="overdue"><span>Overdue</span><b id="overdue">0</b></div>
+  <div class="kpi-click" role="button" tabindex="0" data-drill="due7"><span>Due within 7 days</span><b id="due7">0</b></div>
+  <div class="kpi-click" role="button" tabindex="0" data-drill="total"><span>Expected premium</span><b id="premium">0</b></div>
+  <div class="kpi-click" role="button" tabindex="0" data-drill="total"><span>Insurable turnover</span><b id="turnover">0</b></div>
 </div>
 <div class="dashboard-grid">
   <article><div class="article-head"><h3>Customer country</h3><button onclick="exportSummary('customer_country')">Export</button></div><div id="countries"></div></article>
@@ -39,6 +39,10 @@
 </article>
 </section>
 <section id="pros" hidden><article>
+<div id="drillBanner" class="drill-banner" hidden>
+  <div><b id="drillTitle">Dashboard selection</b><span id="drillCount"></span></div>
+  <button type="button" onclick="clearDashboardDrill()">Clear selection</button>
+</div>
 <div class="toolbar">
   <input id="search" placeholder="Search prospect, policy, broker, contact or remarks" oninput="table()">
   <select id="ptStatus" onchange="table()"><option value="">All statuses</option></select>
