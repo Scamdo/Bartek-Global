@@ -1,6 +1,6 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","policy_start_date","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
-const APP_VERSION="1.9.3";
+const APP_VERSION="1.9.4";
 let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null,REMINDERS=[],PASSWORD_RECOVERY_MODE=false;
 
 const n=v=>Number(String(v??"").trim().replace(/\s/g,"").replace(",", "."))||0;
@@ -33,15 +33,23 @@ async function init(){
   S.auth.onAuthStateChange(async(event,session)=>{
     if(event==="PASSWORD_RECOVERY"){
       PASSWORD_RECOVERY_MODE=true;
+      sessionStorage.setItem("gpm_password_recovery_mode","1");
       showPasswordReset();
       return;
     }
     if(event==="SIGNED_OUT"){
-      CURRENT_USER=null;CURRENT_ACCESS=null;on=false;PASSWORD_RECOVERY_MODE=false;
-      showAuthGate();
+      CURRENT_USER=null;CURRENT_ACCESS=null;on=false;
+      if(!PASSWORD_RECOVERY_MODE){
+        sessionStorage.removeItem("gpm_password_recovery_mode");
+        showAuthGate();
+      }
       return;
     }
-    if(PASSWORD_RECOVERY_MODE)return;
+    if(PASSWORD_RECOVERY_MODE || sessionStorage.getItem("gpm_password_recovery_mode")==="1"){
+      PASSWORD_RECOVERY_MODE=true;
+      showPasswordReset();
+      return;
+    }
     if(session?.user && (!CURRENT_USER || CURRENT_USER.id!==session.user.id)){
       await enterSecureApp(session.user);
     }
@@ -49,8 +57,17 @@ async function init(){
 
   const {data:{session},error}=await S.auth.getSession();
   if(error)console.warn(error);
+
+  // Critical: never let getSession() overwrite a PASSWORD_RECOVERY screen.
+  if(PASSWORD_RECOVERY_MODE || sessionStorage.getItem("gpm_password_recovery_mode")==="1"){
+    PASSWORD_RECOVERY_MODE=true;
+    showPasswordReset();
+    return;
+  }
+
   if(session?.user && isRecentUnfinishedRecovery(session.user)){
     PASSWORD_RECOVERY_MODE=true;
+    sessionStorage.setItem("gpm_password_recovery_mode","1");
     showPasswordReset();
   }else if(session?.user){
     await enterSecureApp(session.user);
@@ -118,6 +135,7 @@ async function setRecoveredPassword(e){
     const {data,error}=await S.auth.updateUser({password:p1});
     if(error)throw error;
     localStorage.setItem("gpm_password_reset_completed_at",String(Date.now()));
+    sessionStorage.removeItem("gpm_password_recovery_mode");
     PASSWORD_RECOVERY_MODE=false;
     msg.textContent="Password set successfully. Opening Global Pipeline Manager...";
     const user=data?.user||(await S.auth.getUser()).data?.user;
