@@ -224,3 +224,12 @@ aside{display:flex;flex-direction:column}.side-nav{display:flex;flex-direction:c
 .signed-user{margin:12px 10px;padding:10px;border-top:1px solid #2f363d;display:grid;gap:3px}
 .signed-user span:first-child{color:#fff;font-size:11px;overflow-wrap:anywhere}.signed-user span:nth-child(2){color:#9aa3ab;font-size:9px;font-weight:800;letter-spacing:.08em}
 .signed-user button{margin-top:6px;font-size:11px}
+
+/* v1.8.1 admin users */
+.admin-user-toolbar{display:grid;grid-template-columns:1.4fr 1fr 150px auto;gap:8px;margin-bottom:10px}
+.admin-note{font-size:12px;color:#68717c;margin:6px 0 16px}
+.access-pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.access-pill.active{background:#e8f5eb;color:#27643a}
+.access-pill.blocked{background:#fdeaea;color:#8f3034}
+.muted{color:#8b939b;font-size:12px}
+@media(max-width:900px){.admin-user-toolbar{grid-template-columns:1fr}}

@@ -29,6 +29,7 @@
 <div class="nav-section-label">TOOLS</div>
 <button onclick="show('documents')"><span class="nav-icon">▤</span>Documents</button>
 <button onclick="show('reports')"><span class="nav-icon">▥</span>Reports</button>
+<button id="adminUsersNav" hidden onclick="show('adminUsers')"><span class="nav-icon">⚙</span>Admin - Users</button>
 </nav>
 <div class="pipeline-snapshot"><div class="snapshot-label">PIPELINE SNAPSHOT</div><div><b id="sidePipelinePremium">EUR 0</b><span>Open pipeline</span></div><div><b id="sideStartsPremium">EUR 0</b><span>Starting next 90 days</span></div><div><b id="sideAttention">0</b><span>Need attention</span></div></div>
 <div class="signed-user">
@@ -90,6 +91,24 @@
 <div id="pipelineBoard" class="pipeline-board"></div></section>
 <section id="documents" hidden><div class="section-head"><div><h2>Documents</h2><p>All attached opportunity documents in one place.</p></div></div><article><div class="toolbar"><input id="docSearch" placeholder="Search prospect or document" oninput="renderDocuments()"></div><div class="tablewrap"><table><thead><tr><th>Prospect</th><th>Customer country</th><th>Document</th><th>Type</th><th>Description / version</th><th>Uploaded</th><th>Open</th></tr></thead><tbody id="allDocsBody"></tbody></table></div></article></section>
 <section id="reports" hidden><div class="section-head"><div><h2>Reports</h2><p>Quick commercial views from the current pipeline.</p></div></div><div class="report-grid"><article><h3>Policy starts</h3><div id="policyStartReport"></div></article><article><h3>Pipeline by stage</h3><div id="stageReport"></div></article></div></section>
+<section id="adminUsers" hidden>
+<div class="section-head"><div><h2>Admin - Users</h2><p>Manage access to Global Pipeline Manager.</p></div></div>
+<article>
+  <div class="admin-user-toolbar">
+    <input id="adminNewEmail" type="email" placeholder="user@company.com">
+    <input id="adminNewName" type="text" placeholder="Display name">
+    <select id="adminNewRole"><option value="user">User</option><option value="admin">Admin</option></select>
+    <button type="button" class="red" onclick="adminAddAllowedUser()">Add access</button>
+  </div>
+  <div class="admin-note">This page manages application authorization. The Auth account itself must still exist in Supabase Authentication → Users.</div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody id="adminUsersBody"></tbody>
+    </table>
+  </div>
+</article>
+</section>
 <section id="pros" hidden><article>
 <div id="drillBanner" class="drill-banner" hidden>
   <div><b id="drillTitle">Dashboard selection</b><span id="drillCount"></span></div>

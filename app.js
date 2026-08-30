@@ -93,6 +93,7 @@ async function enterSecureApp(user){
   CURRENT_ACCESS=access;
   if($("currentUserEmail"))$("currentUserEmail").textContent=access.display_name||user.email||"";
   if($("currentUserRole"))$("currentUserRole").textContent=String(access.role||"user").toUpperCase();
+  if($("adminUsersNav"))$("adminUsersNav").hidden=!isAdmin();
   showSecureApp();
 
   try{
@@ -124,6 +125,55 @@ window.signOutUser=async()=>{
   R=[];COMPANIES=[];DOCS_BY_OPPORTUNITY={};on=false;
 };
 function isAdmin(){return String(CURRENT_ACCESS?.role||"").toLowerCase()==="admin"}
+
+
+async function loadAdminUsers(){
+  if(!isAdmin())return;
+  const body=$("adminUsersBody");if(!body)return;
+  body.innerHTML='<tr><td colspan="5">Loading...</td></tr>';
+  const {data,error}=await S.from("allowed_users").select("email,display_name,role,active,created_at").order("email");
+  if(error){body.innerHTML=`<tr><td colspan="5">${esc(error.message)}</td></tr>`;return}
+  body.innerHTML=(data||[]).map(u=>`<tr>
+    <td>${esc(u.email)}</td>
+    <td>${esc(u.display_name||"")}</td>
+    <td><select onchange="adminChangeRole('${esc(u.email)}',this.value)" ${String(u.email).toLowerCase()===String(CURRENT_USER?.email||"").toLowerCase()?"disabled":""}>
+      <option value="user" ${u.role==="user"?"selected":""}>User</option>
+      <option value="admin" ${u.role==="admin"?"selected":""}>Admin</option>
+    </select></td>
+    <td><span class="access-pill ${u.active?"active":"blocked"}">${u.active?"Active":"Blocked"}</span></td>
+    <td>
+      ${String(u.email).toLowerCase()===String(CURRENT_USER?.email||"").toLowerCase()
+        ? '<span class="muted">Current user</span>'
+        : `<button onclick="adminToggleUser('${esc(u.email)}',${u.active?"false":"true"})">${u.active?"Block":"Activate"}</button>`}
+    </td>
+  </tr>`).join("")||'<tr><td colspan="5">No users.</td></tr>';
+}
+
+window.adminAddAllowedUser=async()=>{
+  if(!isAdmin())return alert("Admin access required.");
+  const email=$("adminNewEmail").value.trim().toLowerCase();
+  const display_name=$("adminNewName").value.trim();
+  const role=$("adminNewRole").value;
+  if(!email)return alert("Enter an email address.");
+  const {error}=await S.from("allowed_users").upsert({email,display_name,role,active:true},{onConflict:"email"});
+  if(error)return alert(error.message);
+  $("adminNewEmail").value="";$("adminNewName").value="";$("adminNewRole").value="user";
+  await loadAdminUsers();
+};
+
+window.adminToggleUser=async(email,active)=>{
+  if(!isAdmin())return alert("Admin access required.");
+  const {error}=await S.from("allowed_users").update({active}).eq("email",email);
+  if(error)return alert(error.message);
+  await loadAdminUsers();
+};
+
+window.adminChangeRole=async(email,role)=>{
+  if(!isAdmin())return alert("Admin access required.");
+  const {error}=await S.from("allowed_users").update({role}).eq("email",email);
+  if(error){alert(error.message);await loadAdminUsers();return}
+  await loadAdminUsers();
+};
 
 function setSelect(id,a,label){let el=$(id);if(!el)return;let old=el.value;el.innerHTML=`<option value="">${label}</option>`+a.map(x=>`<option>${esc(x)}</option>`).join("");if([...el.options].some(o=>o.value===old))el.value=old}
 function setList(id,a){let el=$(id);if(el)el.innerHTML=a.map(x=>`<option value="${esc(x)}">`).join("")}
@@ -833,5 +883,5 @@ window.openSidebarView=type=>{if(type==="overdue"||type==="due7"||type==="won")r
 window.renderDocuments=()=>{const b=$("allDocsBody");if(!b)return;const q=($("docSearch")?.value||"").toLowerCase(),rows=[];R.forEach(r=>(DOCS_BY_OPPORTUNITY[r.id]||[]).forEach(d=>{if(!q||[r.prospect_name,r.customer_country,d.file_name,d.document_type,d.description].join(" ").toLowerCase().includes(q))rows.push({r,d})}));b.innerHTML=rows.length?rows.map(({r,d})=>`<tr><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.customer_country)}</td><td>${esc(d.file_name)}</td><td>${esc(d.document_type)}</td><td>${esc(d.description)}</td><td>${d.created_at?new Date(d.created_at).toLocaleDateString():""}</td><td><button onclick="openFiles('${r.id}')">Open</button></td></tr>`).join(""):'<tr><td colspan="7">No documents found.</td></tr>'};
 window.renderReports=()=>{const p=$("policyStartReport"),s=$("stageReport");if(!p||!s)return;const a=R.filter(isPipelineOpen),b={"Next 30 days":0,"31-60 days":0,"61-90 days":0,"Later":0,"No start date":0};a.forEach(r=>{const d=policyStartDays(r);if(d===null)b["No start date"]++;else if(d>=0&&d<=30)b["Next 30 days"]++;else if(d<=60)b["31-60 days"]++;else if(d<=90)b["61-90 days"]++;else if(d>90)b["Later"]++});p.innerHTML=Object.entries(b).map(([k,v])=>`<div class="report-line"><span>${k}</span><b>${v}</b></div>`).join("");const g={};R.forEach(r=>{const x=normalizeBoardStage(r.status);g[x]=(g[x]||0)+1});s.innerHTML=BOARD_STAGES.map(x=>`<div class="report-line"><span>${x}</span><b>${g[x]||0}</b></div>`).join("")};
 
-window.show=x=>{["dash","pros","board","documents","reports"].forEach(id=>{if($(id))$(id).hidden=id!==x});if(x==="dash")render();else if(x==="board")renderBoard();else if(x==="documents")renderDocuments();else if(x==="reports")renderReports();else table();updateSidebar()};
+window.show=x=>{["dash","pros","board","documents","reports","adminUsers"].forEach(id=>{if($(id))$(id).hidden=id!==x});if(x==="dash")render();else if(x==="board")renderBoard();else if(x==="documents")renderDocuments();else if(x==="reports")renderReports();else if(x==="adminUsers")loadAdminUsers();else table();updateSidebar()};
 setTimeout(updateSidebar,0);
