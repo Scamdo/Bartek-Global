@@ -26,7 +26,7 @@ async function init(){
     auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
   });
 
-  if($("loginForm"))$("loginForm").addEventListener("submit",sendMagicLink);
+  if($("loginForm"))$("loginForm").addEventListener("submit",signInWithPassword);
 
   S.auth.onAuthStateChange(async(event,session)=>{
     if(event==="SIGNED_OUT"){
@@ -54,24 +54,28 @@ function showSecureApp(){
   if($("authGate"))$("authGate").hidden=true;
   if($("appShell"))$("appShell").hidden=false;
 }
-async function sendMagicLink(e){
+async function signInWithPassword(e){
   e.preventDefault();
   const email=$("loginEmail").value.trim().toLowerCase();
+  const password=$("loginPassword").value;
   const msg=$("authMessage"),btn=$("loginBtn");
-  msg.textContent="";btn.disabled=true;btn.textContent="Sending...";
+  msg.textContent="";btn.disabled=true;btn.textContent="Signing in...";
   try{
-    const redirectTo=location.origin+location.pathname;
-    const {error}=await S.auth.signInWithOtp({
-      email,
-      options:{emailRedirectTo:redirectTo,shouldCreateUser:false}
-    });
+    const {data,error}=await S.auth.signInWithPassword({email,password});
     if(error)throw error;
-    msg.textContent="Check your email and open the secure sign-in link.";
+    if(!data?.user)throw new Error("Sign-in failed.");
   }catch(err){
     console.warn(err);
-    msg.textContent="Sign-in could not be started. Your account may not be authorized.";
+    const raw=String(err?.message||"").toLowerCase();
+    if(raw.includes("invalid login credentials")){
+      msg.textContent="Incorrect email or password.";
+    }else if(raw.includes("email not confirmed")){
+      msg.textContent="Your email is not confirmed yet.";
+    }else{
+      msg.textContent=err?.message||"Sign-in failed.";
+    }
   }finally{
-    btn.disabled=false;btn.textContent="Send sign-in link";
+    btn.disabled=false;btn.textContent="Sign in";
   }
 }
 async function enterSecureApp(user){

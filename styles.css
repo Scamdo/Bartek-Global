@@ -233,3 +233,7 @@ aside{display:flex;flex-direction:column}.side-nav{display:flex;flex-direction:c
 .access-pill.blocked{background:#fdeaea;color:#8f3034}
 .muted{color:#8b939b;font-size:12px}
 @media(max-width:900px){.admin-user-toolbar{grid-template-columns:1fr}}
+
+/* v1.8.2 password login */
+.auth-card form label+label{margin-top:12px}
+.auth-card input[type="password"]{width:100%;margin-top:7px;box-sizing:border-box}
