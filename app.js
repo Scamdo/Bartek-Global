@@ -1,7 +1,15 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","policy_start_date","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
-const APP_VERSION="1.9.4";
+const APP_VERSION="1.9.5";
 let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null,REMINDERS=[],PASSWORD_RECOVERY_MODE=false;
+const RECOVERY_URL_AT_BOOT=(()=>{
+  const u=String(window.location.href||"").toLowerCase();
+  return u.includes("type=recovery") || u.includes("type%3drecovery");
+})();
+if(RECOVERY_URL_AT_BOOT){
+  PASSWORD_RECOVERY_MODE=true;
+  sessionStorage.setItem("gpm_password_recovery_mode","1");
+}
 
 const n=v=>Number(String(v??"").trim().replace(/\s/g,"").replace(",", "."))||0;
 const fmt=v=>new Intl.NumberFormat("en-US",{maximumFractionDigits:0}).format(n(v)).replace(/,/g," ");
@@ -30,37 +38,49 @@ async function init(){
   if($("loginForm"))$("loginForm").addEventListener("submit",signInWithPassword);
   if($("resetPasswordForm"))$("resetPasswordForm").addEventListener("submit",setRecoveredPassword);
 
-  S.auth.onAuthStateChange(async(event,session)=>{
+  // If this page was opened from a Supabase recovery link, lock the UI in
+  // password-reset mode before Supabase consumes/cleans the URL fragment.
+  if(RECOVERY_URL_AT_BOOT || sessionStorage.getItem("gpm_password_recovery_mode")==="1"){
+    PASSWORD_RECOVERY_MODE=true;
+    sessionStorage.setItem("gpm_password_recovery_mode","1");
+    showPasswordReset();
+  }
+
+  S.auth.onAuthStateChange((event,session)=>{
+    // PASSWORD_RECOVERY can arrive after INITIAL_SESSION. Once recovery starts,
+    // no auth event may open the secure app until the password is actually set.
     if(event==="PASSWORD_RECOVERY"){
       PASSWORD_RECOVERY_MODE=true;
       sessionStorage.setItem("gpm_password_recovery_mode","1");
       showPasswordReset();
       return;
     }
-    if(event==="SIGNED_OUT"){
-      CURRENT_USER=null;CURRENT_ACCESS=null;on=false;
-      if(!PASSWORD_RECOVERY_MODE){
-        sessionStorage.removeItem("gpm_password_recovery_mode");
-        showAuthGate();
-      }
-      return;
-    }
-    if(PASSWORD_RECOVERY_MODE || sessionStorage.getItem("gpm_password_recovery_mode")==="1"){
+
+    if(PASSWORD_RECOVERY_MODE || RECOVERY_URL_AT_BOOT || sessionStorage.getItem("gpm_password_recovery_mode")==="1"){
       PASSWORD_RECOVERY_MODE=true;
+      sessionStorage.setItem("gpm_password_recovery_mode","1");
       showPasswordReset();
       return;
     }
+
+    if(event==="SIGNED_OUT"){
+      CURRENT_USER=null;CURRENT_ACCESS=null;on=false;
+      showAuthGate();
+      return;
+    }
+
+    // Run secure-app entry outside the auth callback's synchronous flow.
     if(session?.user && (!CURRENT_USER || CURRENT_USER.id!==session.user.id)){
-      await enterSecureApp(session.user);
+      setTimeout(()=>enterSecureApp(session.user),0);
     }
   });
 
   const {data:{session},error}=await S.auth.getSession();
   if(error)console.warn(error);
 
-  // Critical: never let getSession() overwrite a PASSWORD_RECOVERY screen.
-  if(PASSWORD_RECOVERY_MODE || sessionStorage.getItem("gpm_password_recovery_mode")==="1"){
+  if(PASSWORD_RECOVERY_MODE || RECOVERY_URL_AT_BOOT || sessionStorage.getItem("gpm_password_recovery_mode")==="1"){
     PASSWORD_RECOVERY_MODE=true;
+    sessionStorage.setItem("gpm_password_recovery_mode","1");
     showPasswordReset();
     return;
   }
@@ -135,8 +155,8 @@ async function setRecoveredPassword(e){
     const {data,error}=await S.auth.updateUser({password:p1});
     if(error)throw error;
     localStorage.setItem("gpm_password_reset_completed_at",String(Date.now()));
-    sessionStorage.removeItem("gpm_password_recovery_mode");
     PASSWORD_RECOVERY_MODE=false;
+    sessionStorage.removeItem("gpm_password_recovery_mode");
     msg.textContent="Password set successfully. Opening Global Pipeline Manager...";
     const user=data?.user||(await S.auth.getUser()).data?.user;
     if(!user)throw new Error("Password was saved, but the secure session could not be opened.");
