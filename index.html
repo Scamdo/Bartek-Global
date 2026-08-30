@@ -1,5 +1,21 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Global Pipeline Manager</title><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body>
-<aside><h2>Global Pipeline</h2><button onclick="show('dash')">Dashboard</button><button onclick="show('pros')">Prospects</button><button onclick="show('board')">Pipeline Board</button><small id="mode">Connecting...</small></aside>
+<aside><h2>Global Pipeline</h2>
+<nav class="side-nav">
+<div class="nav-section-label">MAIN</div>
+<button onclick="show('dash')"><span class="nav-icon">⌂</span>Dashboard</button>
+<button onclick="show('pros')"><span class="nav-icon">◎</span>Prospects</button>
+<button onclick="show('board')"><span class="nav-icon">▦</span>Pipeline Board</button>
+<div class="nav-section-label">MY WORK</div>
+<button onclick="openSidebarView('overdue')"><span class="nav-icon">!</span>Overdue<b id="sideOverdue" class="nav-badge danger">0</b></button>
+<button onclick="openSidebarView('due7')"><span class="nav-icon">◷</span>Due this week<b id="sideDue7" class="nav-badge warning">0</b></button>
+<button onclick="openSidebarView('starts90')"><span class="nav-icon">↗</span>Policy starts<b id="sideStarts90" class="nav-badge">0</b></button>
+<button onclick="openSidebarView('won')"><span class="nav-icon">✓</span>Won<b id="sideWon" class="nav-badge success">0</b></button>
+<div class="nav-section-label">TOOLS</div>
+<button onclick="show('documents')"><span class="nav-icon">▤</span>Documents</button>
+<button onclick="show('reports')"><span class="nav-icon">▥</span>Reports</button>
+</nav>
+<div class="pipeline-snapshot"><div class="snapshot-label">PIPELINE SNAPSHOT</div><div><b id="sidePipelinePremium">EUR 0</b><span>Open pipeline</span></div><div><b id="sideStartsPremium">EUR 0</b><span>Starting next 90 days</span></div><div><b id="sideAttention">0</b><span>Need attention</span></div></div>
+<small id="mode">Connecting...</small></aside>
 <main><header><div><h1>Global Pipeline Manager</h1><p>Commercial pipeline overview</p></div><button class="red" onclick="openForm()">+ New prospect</button></header>
 <section id="dash">
 <div class="filters dashboard-filters">
@@ -51,6 +67,8 @@
 <select id="boardBroker" onchange="renderBoard()"><option value="">All brokers</option></select>
 </div></div>
 <div id="pipelineBoard" class="pipeline-board"></div></section>
+<section id="documents" hidden><div class="section-head"><div><h2>Documents</h2><p>All attached opportunity documents in one place.</p></div></div><article><div class="toolbar"><input id="docSearch" placeholder="Search prospect or document" oninput="renderDocuments()"></div><div class="tablewrap"><table><thead><tr><th>Prospect</th><th>Customer country</th><th>Document</th><th>Type</th><th>Description / version</th><th>Uploaded</th><th>Open</th></tr></thead><tbody id="allDocsBody"></tbody></table></div></article></section>
+<section id="reports" hidden><div class="section-head"><div><h2>Reports</h2><p>Quick commercial views from the current pipeline.</p></div></div><div class="report-grid"><article><h3>Policy starts</h3><div id="policyStartReport"></div></article><article><h3>Pipeline by stage</h3><div id="stageReport"></div></article></div></section>
 <section id="pros" hidden><article>
 <div id="drillBanner" class="drill-banner" hidden>
   <div><b id="drillTitle">Dashboard selection</b><span id="drillCount"></span></div>

@@ -733,3 +733,17 @@ if(fxField){
 initDashboardClicks();
 
 window.show=id=>{$("dash").hidden=id!=="dash";$("pros").hidden=id!=="pros";$("board").hidden=id!=="board";if(id==="dash")render();else if(id==="board")renderBoard();else table()};
+
+function policyStartDays(r){if(!r.policy_start_date)return null;const t=new Date();t.setHours(0,0,0,0);return Math.ceil((new Date(r.policy_start_date+"T00:00:00")-t)/86400000)}
+function updateSidebar(){
+ const active=R.filter(isPipelineOpen),over=active.filter(r=>days(r.offer_deadline)!==null&&days(r.offer_deadline)<0),due=active.filter(r=>{const d=days(r.offer_deadline);return d!==null&&d>=0&&d<=7}),starts=active.filter(r=>{const d=policyStartDays(r);return d!==null&&d>=0&&d<=90}),won=R.filter(r=>statusLower(r)==="won");
+ [["sideOverdue",over.length],["sideDue7",due.length],["sideStarts90",starts.length],["sideWon",won.length],["sideAttention",new Set([...over,...due].map(r=>r.id)).size]].forEach(([id,v])=>{if($(id))$(id).textContent=v});
+ if($("sidePipelinePremium"))$("sidePipelinePremium").textContent=moneyText(active.reduce((s,r)=>s+n(r.expected_premium),0),"EUR");
+ if($("sideStartsPremium"))$("sideStartsPremium").textContent=moneyText(starts.reduce((s,r)=>s+n(r.expected_premium),0),"EUR");
+}
+window.openSidebarView=type=>{if(type==="overdue"||type==="due7"||type==="won")return openDashboardDrill(type);const ids=R.filter(isPipelineOpen).filter(r=>{const d=policyStartDays(r);return d!==null&&d>=0&&d<=90}).map(r=>String(r.id));DASH_DRILL={ids,label:"Policy starts - next 90 days"};updateDrillBanner();show("pros");table()};
+window.renderDocuments=()=>{const b=$("allDocsBody");if(!b)return;const q=($("docSearch")?.value||"").toLowerCase(),rows=[];R.forEach(r=>(DOCS_BY_OPPORTUNITY[r.id]||[]).forEach(d=>{if(!q||[r.prospect_name,r.customer_country,d.file_name,d.document_type,d.description].join(" ").toLowerCase().includes(q))rows.push({r,d})}));b.innerHTML=rows.length?rows.map(({r,d})=>`<tr><td><b>${esc(r.prospect_name)}</b></td><td>${esc(r.customer_country)}</td><td>${esc(d.file_name)}</td><td>${esc(d.document_type)}</td><td>${esc(d.description)}</td><td>${d.created_at?new Date(d.created_at).toLocaleDateString():""}</td><td><button onclick="openFiles('${r.id}')">Open</button></td></tr>`).join(""):'<tr><td colspan="7">No documents found.</td></tr>'};
+window.renderReports=()=>{const p=$("policyStartReport"),s=$("stageReport");if(!p||!s)return;const a=R.filter(isPipelineOpen),b={"Next 30 days":0,"31-60 days":0,"61-90 days":0,"Later":0,"No start date":0};a.forEach(r=>{const d=policyStartDays(r);if(d===null)b["No start date"]++;else if(d>=0&&d<=30)b["Next 30 days"]++;else if(d<=60)b["31-60 days"]++;else if(d<=90)b["61-90 days"]++;else if(d>90)b["Later"]++});p.innerHTML=Object.entries(b).map(([k,v])=>`<div class="report-line"><span>${k}</span><b>${v}</b></div>`).join("");const g={};R.forEach(r=>{const x=normalizeBoardStage(r.status);g[x]=(g[x]||0)+1});s.innerHTML=BOARD_STAGES.map(x=>`<div class="report-line"><span>${x}</span><b>${g[x]||0}</b></div>`).join("")};
+
+window.show=x=>{["dash","pros","board","documents","reports"].forEach(id=>{if($(id))$(id).hidden=id!==x});if(x==="dash")render();else if(x==="board")renderBoard();else if(x==="documents")renderDocuments();else if(x==="reports")renderReports();else table();updateSidebar()};
+setTimeout(updateSidebar,0);
