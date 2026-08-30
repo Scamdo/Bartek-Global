@@ -29,7 +29,6 @@ async function init(){
 
   if($("loginForm"))$("loginForm").addEventListener("submit",signInWithPassword);
   if($("resetPasswordForm"))$("resetPasswordForm").addEventListener("submit",setRecoveredPassword);
-  if($("forgotPasswordBtn"))$("forgotPasswordBtn").addEventListener("click",sendPasswordRecovery);
 
   S.auth.onAuthStateChange(async(event,session)=>{
     if(event==="PASSWORD_RECOVERY"){
@@ -91,7 +90,7 @@ function showSecureApp(){
   if($("authGate"))$("authGate").hidden=true;
   if($("appShell"))$("appShell").hidden=false;
 }
-async function sendPasswordRecovery(){
+window.sendPasswordRecovery=async function sendPasswordRecovery(){
   const email=$("loginEmail")?.value.trim().toLowerCase();
   const msg=$("authMessage");
   if(!email){msg.textContent="Enter your business email first.";$("loginEmail")?.focus();return}

@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Global Pipeline Manager</title><link rel="stylesheet" href="styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Global Pipeline Manager</title><link rel="stylesheet" href="styles.css?v=1.9.3"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head><body>
 <div id="authGate" class="auth-gate">
   <div class="auth-card">
     <div class="auth-mark">GP</div>
@@ -12,7 +12,7 @@
         <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password" required>
       </label>
       <button id="loginBtn" class="red" type="submit">Sign in</button>
-      <button id="forgotPasswordBtn" class="auth-link-btn" type="button">Forgot password?</button>
+      <button id="forgotPasswordBtn" class="auth-link-btn" type="button" onclick="sendPasswordRecovery()">Forgot password?</button>
     </form>
     <form id="resetPasswordForm" hidden>
       <div class="auth-reset-intro">Create a new password for your account.</div>
@@ -26,7 +26,7 @@
     </form>
     <div id="authMessage" class="auth-message"></div>
     <small id="authSessionNote">Your session will stay signed in on this device until you sign out.</small>
-    <div class="app-version">v1.9.2</div>
+    <div class="app-version">v1.9.3</div>
   </div>
 </div>
 <div id="appShell" hidden>
@@ -57,7 +57,7 @@
       <span id="currentUserRole"></span>
       <button type="button" onclick="signOutUser()">Sign out</button>
     </div>
-    <small id="mode">Secure mode</small><small class="sidebar-version">v1.9.2</small></aside>
+    <small id="mode">Secure mode</small><small class="sidebar-version">v1.9.3</small></aside>
 <main><header><div><h1>Global Pipeline Manager</h1><p>Commercial pipeline overview</p></div><button class="red" onclick="openForm()">+ New prospect</button></header>
 <section id="dash">
 <div class="filters dashboard-filters">
@@ -205,7 +205,7 @@
 </div>
 </section>
 <div class="actions"><button type="button" onclick="dlg.close()">Cancel</button><button class="red">Save prospect</button></div></form></dialog>
-<datalist id="prospectsList"></datalist><datalist id="policiesList"></datalist><datalist id="customerIdsList"></datalist><datalist id="countriesList"></datalist><datalist id="globalsList"></datalist><datalist id="managersList"></datalist><datalist id="brokersList"></datalist><datalist id="contactsList"></datalist><datalist id="kauList"></datalist></div><script src="config.js"></script><script src="app.js"></script>
+<datalist id="prospectsList"></datalist><datalist id="policiesList"></datalist><datalist id="customerIdsList"></datalist><datalist id="countriesList"></datalist><datalist id="globalsList"></datalist><datalist id="managersList"></datalist><datalist id="brokersList"></datalist><datalist id="contactsList"></datalist><datalist id="kauList"></datalist></div><script src="config.js"></script><script src="app.js?v=1.9.3"></script>
 <dialog id="filesDlg" class="files-dialog">
   <div class="files-dialog-head">
     <div>
