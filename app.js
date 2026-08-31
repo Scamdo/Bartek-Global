@@ -681,7 +681,14 @@ window.runAiPipelineReview=async function(){
     if(data?.error)throw new Error(data.error);
     const review=String(data?.review||"").trim();
     if(!review)throw new Error("AI returned an empty review.");
-    if(body)body.innerHTML=`<div class="ai-review-text">${formatAiReview(review)}</div>`;
+    const actions=Array.isArray(data?.suggested_actions)?data.suggested_actions:[];
+    const actionsHtml=actions.length?`<div class="ai-actions"><div class="ai-actions-title">Suggested Next Actions</div>${actions.map((a,i)=>{
+      const opp=prospects.find(p=>String(p.id)===String(a.opportunity_id))||prospects.find(p=>String(p.prospect_name||"").toLowerCase()===String(a.prospect_name||"").toLowerCase());
+      if(!opp)return "";
+      const due=/^\d{4}-\d{2}-\d{2}$/.test(String(a.due_date||""))?a.due_date:localDateKey(new Date(Date.now()+3*86400000));
+      return `<div class="ai-action-card" id="aiAction_${i}"><div class="ai-action-main"><b>${esc(opp.prospect_name||a.prospect_name||"Opportunity")}</b><span>${esc(a.action||"")}</span>${a.reason?`<small>${esc(a.reason)}</small>`:""}<small>Suggested due date: <b>${esc(due)}</b></small></div><button type="button" onclick='createAiNextAction(${JSON.stringify(JSON.stringify({opportunity_id:opp.id,prospect_name:opp.prospect_name,action:a.action||"Follow up",due_date:due,reason:a.reason||""}))},${i})'>Create Next Action</button></div>`;
+    }).join("")}</div>`:"";
+    if(body)body.innerHTML=`${actionsHtml}<div class="ai-review-text">${formatAiReview(review)}</div>`;
     if(meta)meta.textContent=`AI review of ${data?.opportunity_count||prospects.length} active ${prospects.length===1?"opportunity":"opportunities"}. Generated ${new Date().toLocaleString()}.`;
   }catch(err){
     console.error("AI Pipeline Review failed",err);
@@ -692,6 +699,22 @@ window.runAiPipelineReview=async function(){
   }finally{
     if(btn){btn.disabled=false;btn.textContent="AI Pipeline Review"}
   }
+};
+
+window.createAiNextAction=async function(payloadJson,index){
+  try{
+    const a=JSON.parse(payloadJson),opp=R.find(r=>String(r.id)===String(a.opportunity_id));
+    if(!opp)return alert("Opportunity could not be found.");
+    const due=new Date(`${a.due_date}T09:00:00`);
+    if(Number.isNaN(due.getTime()))return alert("AI suggested an invalid due date.");
+    const note=String(a.action||"Follow up").trim()+(a.reason?` — ${String(a.reason).trim()}`:"");
+    const made=await createReminder({opportunity_id:opp.id,due_at:due.toISOString(),reminder_type:"Next Action",note,assigned_to:defaultReminderAssignee(opp),status:"open",automatic:false,created_by:CURRENT_USER?.email||null});
+    if(!made)return;
+    const card=$("aiAction_"+index),btn=card?.querySelector("button");
+    if(card)card.classList.add("created");
+    if(btn){btn.disabled=true;btn.textContent="Created ✓"}
+    renderTasks();
+  }catch(e){console.error(e);alert("Could not create Next Action: "+(e?.message||e))}
 };
 
 function formatAiReview(text){
