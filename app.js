@@ -707,7 +707,7 @@ window.createAiNextAction=async function(payloadJson,index){
     if(!opp)return alert("Opportunity could not be found.");
     const due=new Date(`${a.due_date}T09:00:00`);
     if(Number.isNaN(due.getTime()))return alert("AI suggested an invalid due date.");
-    const note=String(a.action||"Follow up").trim()+(a.reason?` — ${String(a.reason).trim()}`:"");
+    const note=String(a.action||"Follow up").trim();
     const made=await createReminder({opportunity_id:opp.id,due_at:due.toISOString(),reminder_type:"Next Action",note,assigned_to:defaultReminderAssignee(opp),status:"open",automatic:false,created_by:CURRENT_USER?.email||null});
     if(!made)return;
     const card=$("aiAction_"+index),btn=card?.querySelector("button");

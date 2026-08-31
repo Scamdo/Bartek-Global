@@ -307,3 +307,8 @@ body{
 @media(max-width:900px){.ai-review-footer{align-items:flex-start;flex-direction:column}.ai-review-btn{width:100%}}
 
 .ai-actions{margin-bottom:18px}.ai-actions-title{font-size:14px;font-weight:800;color:#b51218;margin:0 0 10px;text-transform:uppercase}.ai-action-card{display:flex;align-items:center;justify-content:space-between;gap:18px;background:#fff;border:1px solid #dfe3e7;border-left:4px solid #b51218;border-radius:9px;padding:14px 16px;margin:9px 0}.ai-action-main{display:flex;flex-direction:column;gap:4px}.ai-action-main span{font-size:13px}.ai-action-main small{font-size:11px;color:#68717c}.ai-action-card button{white-space:nowrap;padding:8px 11px;border:1px solid #b51218;border-radius:7px;background:#b51218;color:#fff;font-weight:700;cursor:pointer}.ai-action-card.created{border-left-color:#2d7a46;background:#f4fbf6}.ai-action-card.created button{background:#2d7a46;border-color:#2d7a46}.ai-action-card button:disabled{cursor:default;opacity:.9}@media(max-width:700px){.ai-action-card{align-items:flex-start;flex-direction:column}.ai-action-card button{width:100%}}
+
+
+/* v1.10.0 visible dashboard version badge */
+.page-title-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.version-badge{display:inline-flex;align-items:center;justify-content:center;padding:3px 7px;border:1px solid #d9dde2;border-radius:999px;background:#fff;color:#68717c;font-size:10px;font-weight:800;letter-spacing:.04em;line-height:1}

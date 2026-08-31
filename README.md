@@ -1,3 +1,13 @@
+# Global Pipeline Manager v1.10.0
+
+## v1.10.0
+- AI-created Next Actions now save only the actionable instruction in Tasks & Reminders. The AI rationale remains visible in Pipeline Review but is not appended to the task text.
+- Added a small `v1.10.0` badge next to the Dashboard title for quick deployment/cache verification.
+- Updated frontend cache-busting query strings to v1.10.0.
+- No database migration is required. The existing `ai-pipeline-review` Edge Function from v1.9.9 remains compatible.
+
+---
+
 # Global Pipeline Manager v1.9.7
 
 Hotfix for password recovery button and browser cache.
