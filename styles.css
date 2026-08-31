@@ -257,3 +257,32 @@ aside{display:flex;flex-direction:column}.side-nav{display:flex;flex-direction:c
 .auth-card form[hidden]{display:none}
 .app-version{margin-top:10px;text-align:center;color:#a0a7ae;font-size:10px;font-weight:700;letter-spacing:.05em}
 .sidebar-version{display:block;text-align:center;color:#67717a;font-size:9px;margin:0 10px 10px}
+
+
+/* v1.9.6 layout fix: appShell is the application grid container */
+body{
+  display:block;
+  min-height:100vh;
+}
+#appShell{
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:210px minmax(0,1fr);
+}
+#appShell[hidden]{
+  display:none !important;
+}
+#appShell > aside{
+  min-height:100vh;
+}
+#appShell > main{
+  min-width:0;
+}
+@media(max-width:900px){
+  #appShell{
+    grid-template-columns:1fr;
+  }
+  #appShell > aside{
+    display:none;
+  }
+}

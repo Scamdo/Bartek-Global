@@ -1,6 +1,6 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","policy_start_date","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
-const APP_VERSION="1.9.5";
+const APP_VERSION="1.9.6";
 let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null,REMINDERS=[],PASSWORD_RECOVERY_MODE=false;
 const RECOVERY_URL_AT_BOOT=(()=>{
   const u=String(window.location.href||"").toLowerCase();
