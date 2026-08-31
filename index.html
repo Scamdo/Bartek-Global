@@ -57,7 +57,7 @@
       <span id="currentUserRole"></span>
       <button type="button" onclick="signOutUser()">Sign out</button>
     </div>
-    <small id="mode">Secure mode</small><small class="sidebar-version">v1.9.7</small></aside>
+    <small id="mode">Secure mode</small><small class="sidebar-version">v1.9.8</small></aside>
 <main><header><div><h1>Global Pipeline Manager</h1><p>Commercial pipeline overview</p></div><button class="red" onclick="openForm()">+ New prospect</button></header>
 <section id="dash">
 <div class="filters dashboard-filters">
@@ -74,6 +74,7 @@
     <option value="none">No deadline</option>
   </select>
   <button onclick="resetDashboardFilters()">Reset filters</button>
+  <button id="aiReviewBtn" class="ai-review-btn" onclick="runAiPipelineReview()">✦ AI Pipeline Review</button>
 </div>
 <div class="kpis">
   <div class="kpi-click" role="button" tabindex="0" data-drill="total"><span>Total prospects</span><b id="total">0</b></div>
@@ -205,7 +206,22 @@
 </div>
 </section>
 <div class="actions"><button type="button" onclick="dlg.close()">Cancel</button><button class="red">Save prospect</button></div></form></dialog>
-<datalist id="prospectsList"></datalist><datalist id="policiesList"></datalist><datalist id="customerIdsList"></datalist><datalist id="countriesList"></datalist><datalist id="globalsList"></datalist><datalist id="managersList"></datalist><datalist id="brokersList"></datalist><datalist id="contactsList"></datalist><datalist id="kauList"></datalist></div><script src="config.js"></script><script src="app.js?v=1.9.7"></script>
+<datalist id="prospectsList"></datalist><datalist id="policiesList"></datalist><datalist id="customerIdsList"></datalist><datalist id="countriesList"></datalist><datalist id="globalsList"></datalist><datalist id="managersList"></datalist><datalist id="brokersList"></datalist><datalist id="contactsList"></datalist><datalist id="kauList"></datalist></div><script src="config.js"></script><script src="app.js?v=1.9.8"></script>
+<dialog id="aiReviewDlg" class="ai-review-dialog">
+  <div class="ai-review-head">
+    <div>
+      <span class="ai-kicker">ATRADIUS AI</span>
+      <h2>Pipeline Review</h2>
+      <p id="aiReviewMeta">AI review of the current active pipeline.</p>
+    </div>
+    <button type="button" class="ai-close" onclick="aiReviewDlg.close()">×</button>
+  </div>
+  <div id="aiReviewBody" class="ai-review-body"></div>
+  <div class="ai-review-footer">
+    <span>AI output is advisory. Verify commercial facts before acting.</span>
+    <button type="button" onclick="aiReviewDlg.close()">Close</button>
+  </div>
+</dialog>
 <dialog id="filesDlg" class="files-dialog">
   <div class="files-dialog-head">
     <div>

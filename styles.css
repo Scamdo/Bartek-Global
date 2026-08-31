@@ -286,3 +286,22 @@ body{
     display:none;
   }
 }
+
+
+/* v1.9.8 AI Pipeline Review */
+.ai-review-btn{background:#20242a!important;color:#fff!important;border-color:#20242a!important;font-weight:700;white-space:nowrap}
+.ai-review-btn:hover{background:#343a41!important}.ai-review-btn:disabled{opacity:.6;cursor:wait}
+.ai-review-dialog{width:min(900px,94vw);max-height:88vh;padding:0;overflow:hidden}
+.ai-review-dialog::backdrop{background:rgba(0,0,0,.45)}
+.ai-review-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;padding:22px 24px 18px;border-bottom:1px solid #e5e7ea;background:#fff}
+.ai-review-head h2{margin:3px 0 6px;font-size:24px}.ai-review-head p{margin:0;color:#68717c;font-size:12px}
+.ai-kicker{font-size:10px;letter-spacing:.12em;font-weight:800;color:#b51218}
+.ai-close{border:0;background:transparent;font-size:28px;line-height:1;cursor:pointer;color:#59616b;padding:2px 5px}
+.ai-review-body{padding:22px 24px;max-height:62vh;overflow:auto;background:#f7f8f9}
+.ai-review-text{background:#fff;border:1px solid #e0e3e7;border-radius:10px;padding:20px;line-height:1.55;color:#20242a}
+.ai-review-text h3{margin:20px 0 8px;font-size:14px;color:#b51218;text-transform:none}.ai-review-text h3:first-child{margin-top:0}
+.ai-bullet{margin:6px 0;padding-left:2px}.ai-loading{display:flex;gap:14px;align-items:center;background:#fff;border:1px solid #e0e3e7;border-radius:10px;padding:22px}.ai-loading p{margin:5px 0 0;color:#68717c}
+.ai-spinner{width:22px;height:22px;border:3px solid #e4e7ea;border-top-color:#b51218;border-radius:50%;animation:aiSpin .8s linear infinite;flex:0 0 auto}@keyframes aiSpin{to{transform:rotate(360deg)}}
+.ai-error{background:#fff1f1;border:1px solid #efc7c9;border-radius:10px;padding:18px;color:#7c2024}.ai-error p{margin:7px 0 0}
+.ai-review-footer{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 24px;border-top:1px solid #e5e7ea;background:#fff}.ai-review-footer span{font-size:11px;color:#747c86}.ai-review-footer button{padding:8px 13px;border:1px solid #d9dde2;border-radius:7px;background:#fff;cursor:pointer}
+@media(max-width:900px){.ai-review-footer{align-items:flex-start;flex-direction:column}.ai-review-btn{width:100%}}

@@ -1,6 +1,6 @@
 const $=x=>document.getElementById(x);
 const F=["prospect_name","policy_id","customer_id","customer_country","global_country","sales_manager","broker","broker_contact","offer_deadline","policy_start_date","precheck","acceptance_rate","key_account_underwriter","opportunity_type","prospect_remarks","status","currency","fx_rate_to_eur","insurable_turnover_original","insurable_turnover","premium_rate","expected_premium_original","expected_premium","premium_principle","closed_date"];
-const APP_VERSION="1.9.7";
+const APP_VERSION="1.9.8";
 let R=[],S=null,on=false,COMPANIES=[],DOCS_BY_OPPORTUNITY={},DASH_DRILL=null,CURRENT_USER=null,CURRENT_ACCESS=null,REMINDERS=[],PASSWORD_RECOVERY_MODE=false;
 const RECOVERY_URL_AT_BOOT=(()=>{
   const u=String(window.location.href||"").toLowerCase();
@@ -663,6 +663,48 @@ window.deleteDocument=async(id,path)=>{
 };
 function makeCsv(rows,name){if(!rows.length)return alert("No data to export.");let keys=Object.keys(rows[0]),text="\ufeff"+keys.join(";")+"\n"+rows.map(r=>keys.map(k=>`"${String(r[k]??"").replace(/"/g,'""')}"`).join(";")).join("\n");let b=new Blob([text],{type:"text/csv;charset=utf-8"}),z=document.createElement("a");z.href=URL.createObjectURL(b);z.download=name;z.click();URL.revokeObjectURL(z.href)}
 function exportCsv(){makeCsv(prospectFiltered(),"pipeline_report.csv")}
+
+window.runAiPipelineReview=async function(){
+  const dlg=$("aiReviewDlg"),body=$("aiReviewBody"),meta=$("aiReviewMeta"),btn=$("aiReviewBtn");
+  const prospects=filtered().filter(isPipelineOpen);
+  if(!prospects.length){
+    alert("There are no active pipeline opportunities in the current Dashboard filters.");
+    return;
+  }
+  if(dlg&&!dlg.open)dlg.showModal();
+  if(meta)meta.textContent=`Analysing ${prospects.length} active ${prospects.length===1?"opportunity":"opportunities"} from the current Dashboard view.`;
+  if(body)body.innerHTML='<div class="ai-loading"><span class="ai-spinner"></span><div><b>AI Pipeline Review is running...</b><p>Reviewing priorities, deadlines, commercial opportunities and recommended actions.</p></div></div>';;
+  if(btn){btn.disabled=true;btn.textContent="Analysing..."}
+  try{
+    const {data,error}=await S.functions.invoke("ai-pipeline-review",{body:{prospects}});
+    if(error)throw error;
+    if(data?.error)throw new Error(data.error);
+    const review=String(data?.review||"").trim();
+    if(!review)throw new Error("AI returned an empty review.");
+    if(body)body.innerHTML=`<div class="ai-review-text">${formatAiReview(review)}</div>`;
+    if(meta)meta.textContent=`AI review of ${data?.opportunity_count||prospects.length} active ${prospects.length===1?"opportunity":"opportunities"}. Generated ${new Date().toLocaleString()}.`;
+  }catch(err){
+    console.error("AI Pipeline Review failed",err);
+    let msg=String(err?.message||"AI Pipeline Review failed.");
+    if(msg.toLowerCase().includes("failed to send a request"))msg="Could not reach the AI function. Check the Edge Function deployment and try again.";
+    if(body)body.innerHTML=`<div class="ai-error"><b>AI review could not be completed.</b><p>${esc(msg)}</p><p>Check Edge Functions → ai-pipeline-review → Logs for details.</p></div>`;
+    if(meta)meta.textContent="No OpenAI analysis was saved or applied to the pipeline.";
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="AI Pipeline Review"}
+  }
+};
+
+function formatAiReview(text){
+  let out=esc(text).replace(/\r\n/g,"\n");
+  out=out.replace(/^#{1,3}\s*(.+)$/gm,'<h3>$1</h3>');
+  out=out.replace(/^\s*\*\*(.+?)\*\*\s*$/gm,'<h3>$1</h3>');
+  out=out.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  out=out.replace(/^[-•]\s+(.+)$/gm,'<div class="ai-bullet">• $1</div>');
+  out=out.replace(/^\d+\.\s+([A-Z][A-Z /&-]{2,})$/gm,'<h3>$1</h3>');
+  out=out.replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
+  return out;
+}
+
 function exportSummary(k){let o={};filtered().forEach(r=>{let x=r[k]||"Not set";o[x]??={name:x,total:0,open:0,won:0,lost:0,expected_premium:0,insurable_turnover:0};let z=o[x];z.total++;let s=statusLower(r);if(s==="open")z.open++;if(s==="won")z.won++;if(s==="lost")z.lost++;z.expected_premium+=n(r.expected_premium);z.insurable_turnover+=n(r.insurable_turnover)});makeCsv(Object.values(o),`${k}_summary.csv`)}
 init();
 function reminderDate(){
